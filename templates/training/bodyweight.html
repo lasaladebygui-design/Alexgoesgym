@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Cuerpo · Tonnage{% endblock %}
+{% block content %}
+<h1 class="font-display text-2xl font-bold mb-6">Peso corporal</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 card-panel">
+        <h2 class="font-display text-lg font-semibold mb-4">Evolución</h2>
+        {% if chart_values %}
+        <div class="h-64"><canvas id="bw-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Registra tu primer peso para ver la gráfica.</p>
+        {% endif %}
+    </div>
+
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-4">Registrar peso</h2>
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Fecha</label>
+                {{ form.date }}
+            </div>
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-ink-secondary mb-1.5">Peso</label>
+                    {{ form.weight }}
+                </div>
+                <div class="w-20">
+                    <label class="block text-xs font-medium text-ink-secondary mb-1.5">Unidad</label>
+                    {{ form.unit }}
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">% grasa (opcional)</label>
+                {{ form.body_fat_pct }}
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Notas</label>
+                {{ form.notes }}
+            </div>
+            <button type="submit" class="btn-primary w-full">Guardar</button>
+        </form>
+    </div>
+</div>
+
+{% if entries %}
+<div class="card-panel mt-6">
+    <h2 class="font-display text-lg font-semibold mb-4">Registros recientes</h2>
+    <ul class="divide-y divide-line">
+        {% for entry in entries %}
+        <li class="py-2.5 flex items-center justify-between text-sm">
+            <div>
+                <p class="text-ink-primary font-mono font-medium">{{ entry.weight_display|floatformat:1 }} {{ entry.input_unit }}</p>
+                <p class="text-xs text-ink-muted">{{ entry.date|date:"d/m/Y" }}{% if entry.body_fat_pct %} · {{ entry.body_fat_pct }}% grasa{% endif %}</p>
+            </div>
+            <form method="post" action="{% url 'training:bodyweight-delete' entry.pk %}" onsubmit="return confirm('¿Borrar este registro?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger">✕</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_body %}
+{% if chart_values %}
+<script>
+new Chart(document.getElementById('bw-chart'), {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            data: {{ chart_values|safe }},
+            borderColor: '#3987e5', backgroundColor: 'rgba(57,135,229,0.12)',
+            fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#898781', maxTicksLimit: 8 } },
+            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    },
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ routine.name }} · Tonnage{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-start justify-between gap-4">
+        <div>
+            <h1 class="font-display text-2xl font-bold">{{ routine.name }}</h1>
+            {% if routine.description %}<p class="text-sm text-ink-muted mt-1">{{ routine.description }}</p>{% endif %}
+        </div>
+        <form method="post" action="{% url 'training:routine-delete' routine.pk %}" onsubmit="return confirm('¿Eliminar «{{ routine.name }}» y todos sus días?');">
+            {% csrf_token %}
+            <button type="submit" class="btn-danger">Eliminar rutina</button>
+        </form>
+    </div>
+
+    {% for day in routine.days.all %}
+    <div class="card-panel" x-data="{ addExOpen: false }">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display text-lg font-semibold">{{ day.name }}</h2>
+            <form method="post" action="{% url 'training:routine-day-delete' routine.pk day.pk %}" onsubmit="return confirm('¿Eliminar este día?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger">Eliminar día</button>
+            </form>
+        </div>
+
+        {% if day.exercises.all %}
+        <ul class="divide-y divide-line mb-3">
+            {% for re in day.exercises.all %}
+            <li class="py-2 flex items-center justify-between text-sm">
+                <div>
+                    <p class="text-ink-primary font-medium">{{ re.exercise.name }}</p>
+                    <p class="text-xs text-ink-muted">
+                        {{ re.target_sets }} series
+                        {% if re.target_reps_min %} × {{ re.target_reps_min }}{% if re.target_reps_max %}–{{ re.target_reps_max }}{% endif %} reps{% endif %}
+                        {% if re.target_rpe %} @ RPE {{ re.target_rpe }}{% endif %}
+                    </p>
+                </div>
+                <form method="post" action="{% url 'training:routine-exercise-delete' routine.pk day.pk re.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger">✕</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-ink-muted mb-3">Sin ejercicios todavía.</p>
+        {% endif %}
+
+        <button type="button" @click="addExOpen = !addExOpen" class="text-xs font-medium text-accent hover:text-accent-hover" x-show="!addExOpen">+ Añadir ejercicio</button>
+        <form method="post" action="{% url 'training:routine-exercise-add' routine.pk day.pk %}" x-show="addExOpen" x-cloak class="mt-3 pt-3 border-t border-line grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {% csrf_token %}
+            <div class="col-span-2 sm:col-span-1">
+                <label class="block text-[11px] text-ink-muted mb-1">Ejercicio</label>
+                {{ re_form.exercise }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">Series</label>
+                {{ re_form.target_sets }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">Reps mín.</label>
+                {{ re_form.target_reps_min }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">Reps máx.</label>
+                {{ re_form.target_reps_max }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">RPE objetivo</label>
+                {{ re_form.target_rpe }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">Descanso (s)</label>
+                {{ re_form.rest_seconds }}
+            </div>
+            <div>
+                <label class="block text-[11px] text-ink-muted mb-1">Superserie</label>
+                {{ re_form.superset_group }}
+            </div>
+            <input type="hidden" name="order" value="{{ day.exercises.count }}">
+            <div class="col-span-2 sm:col-span-4 flex justify-end">
+                <button type="submit" class="btn-primary text-xs px-3 py-1.5">Añadir</button>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+
+    <!-- Añadir día -->
+    <div class="card-panel">
+        <h3 class="font-display text-base font-semibold mb-3">+ Añadir día</h3>
+        <form method="post" action="{% url 'training:routine-day-add' routine.pk %}" class="flex gap-2.5">
+            {% csrf_token %}
+            <input type="text" name="name" placeholder="Ej. Día A · Empuje" class="flex-1" required>
+            <input type="hidden" name="order" value="0">
+            <button type="submit" class="btn-primary">Añadir</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

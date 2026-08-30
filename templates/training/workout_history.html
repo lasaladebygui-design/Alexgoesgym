@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Entrenamientos · Tonnage{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="font-display text-2xl font-bold">Historial de entrenamientos</h1>
+    <a href="{% url 'training:workout-start' %}" class="btn-primary">+ Nuevo</a>
+</div>
+
+{% if page_obj %}
+<div class="space-y-2.5">
+    {% for workout in page_obj %}
+    <a href="{% url 'training:workout-detail' workout.pk %}" class="card-tile flex items-center justify-between gap-4">
+        <div>
+            <p class="tile-value text-base">{{ workout.name }}</p>
+            <p class="tile-sub">{{ workout.date|date:"d/m/Y" }} · {{ workout.date|naturalday }}{% if workout.status == 'cancelled' %} · <span class="text-critical">cancelado</span>{% endif %}</p>
+        </div>
+        <div class="text-right shrink-0">
+            <p class="font-mono text-sm font-semibold">{{ workout.total_sets }} series</p>
+            <p class="text-xs text-ink-muted font-mono">{{ workout.total_volume_kg|floatformat:0|intcomma }} kg</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="flex justify-center gap-2 mt-6">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn-ghost">← Anterior</a>{% endif %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn-ghost">Siguiente →</a>{% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="card-panel text-center py-12">
+    <p class="text-ink-muted mb-4">Todavía no has completado ningún entrenamiento.</p>
+    <a href="{% url 'training:workout-start' %}" class="btn-primary">🔥 Empezar el primero</a>
+</div>
+{% endif %}
+{% endblock %}

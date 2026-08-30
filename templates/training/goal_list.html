@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Objetivos · Tonnage{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="font-display text-2xl font-bold">🎯 Objetivos</h1>
+    <a href="{% url 'training:goal-create' %}" class="btn-primary">+ Nuevo objetivo</a>
+</div>
+
+{% if goals %}
+<div class="space-y-2.5">
+    {% for goal in goals %}
+    <div class="card-tile flex items-center justify-between gap-4 {% if goal.achieved %}opacity-60{% endif %}">
+        <div>
+            <p class="tile-value text-base">{{ goal.title }}</p>
+            <p class="tile-sub">
+                {{ goal.get_kind_display }}
+                {% if goal.target_date %} · para el {{ goal.target_date|date:"d/m/Y" }}{% endif %}
+                {% if goal.target_value_kg %} · {{ goal.target_value_kg }} kg{% endif %}
+            </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <form method="post" action="{% url 'training:goal-toggle' goal.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="pill {% if goal.achieved %}bg-good/15 text-good{% else %}bg-line text-ink-secondary{% endif %}">
+                    {% if goal.achieved %}✅ Conseguido{% else %}Marcar conseguido{% endif %}
+                </button>
+            </form>
+            <form method="post" action="{% url 'training:goal-delete' goal.pk %}" onsubmit="return confirm('¿Eliminar este objetivo?');">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger">✕</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-panel text-center py-12">
+    <p class="text-ink-muted mb-4">Sin objetivos todavía.</p>
+    <a href="{% url 'training:goal-create' %}" class="btn-primary">+ Crear el primero</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,111 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tonnage{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['"IBM Plex Mono"', 'monospace'],
+                    },
+                    colors: {
+                        surface: { DEFAULT: '#141413', raised: '#1c1c1a', chrome: '#1a1a19' },
+                        plane: '#0d0d0c',
+                        ink: { primary: '#ffffff', secondary: '#c3c2b7', muted: '#898781' },
+                        line: '#2c2c2a',
+                        accent: { DEFAULT: '#eb6834', hover: '#f47c4c', ink: '#1a0e07' },
+                        series: {
+                            blue: '#3987e5', orange: '#d95926', aqua: '#199e70', yellow: '#c98500',
+                            magenta: '#d55181', green: '#008300', violet: '#9085e9', red: '#e66767',
+                        },
+                        good: '#0ca30c', warn: '#fab219', serious: '#ec835a', critical: '#e66767',
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background: #0d0d0c; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background: #2c2c2a; border-radius: 999px; }
+        input[type="text"], input[type="password"], input[type="email"], input[type="number"],
+        input[type="date"], input[type="search"], select, textarea {
+            width: 100%; background: #141413; border: 1px solid #2c2c2a; border-radius: 0.65rem;
+            padding: 0.55rem 0.75rem; color: #fff; font-size: 0.9rem;
+        }
+        input:focus, select:focus, textarea:focus { outline: 2px solid #eb6834; outline-offset: 1px; }
+        input[type="checkbox"], input[type="radio"] { accent-color: #eb6834; width: auto; }
+
+        .card-panel { border-radius: 1rem; border: 1px solid #2c2c2a; background: #1c1c1a; padding: 1.25rem 1.4rem; }
+        .card-tile { display: block; border-radius: 1rem; border: 1px solid #2c2c2a; background: #1c1c1a; padding: 1rem 1.1rem; transition: border-color .15s ease; }
+        .tile-label { font-size: .72rem; font-weight: 600; color: #898781; text-transform: uppercase; letter-spacing: .03em; margin-bottom: .35rem; }
+        .tile-value { font-family: "Space Grotesk", sans-serif; font-size: 1.35rem; font-weight: 700; color: #fff; line-height: 1.2; }
+        .tile-sub { font-size: .78rem; color: #898781; margin-top: .25rem; }
+        .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border-radius: .75rem; background: #eb6834; color: #1a0e07; font-weight: 600; font-size: .875rem; padding: .6rem 1.1rem; transition: background-color .15s ease; }
+        .btn-primary:hover { background: #f47c4c; }
+        .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border-radius: .75rem; border: 1px solid #2c2c2a; color: #c3c2b7; font-weight: 500; font-size: .875rem; padding: .55rem 1rem; transition: border-color .15s ease, color .15s ease; }
+        .btn-ghost:hover { border-color: #eb6834; color: #fff; }
+        .btn-danger { color: #e66767; font-size: .8rem; font-weight: 500; }
+        .btn-danger:hover { color: #f08a8a; }
+        .pill { display: inline-flex; align-items: center; border-radius: 999px; font-size: .7rem; font-weight: 600; padding: .2rem .6rem; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-plane text-ink-primary font-sans antialiased">
+    {% if user.is_authenticated %}
+    <div class="flex h-full">
+        <aside class="hidden md:flex md:w-56 md:flex-col md:border-r md:border-line md:bg-surface-chrome md:sticky md:top-0 md:h-screen">
+            <div class="px-5 py-6">
+                <a href="{% url 'dashboard:home' %}" class="font-display text-xl font-bold tracking-tight text-ink-primary">
+                    Tonnage<span class="text-accent">.</span>
+                </a>
+            </div>
+            <nav class="flex-1 px-3 space-y-1 text-sm">
+                {% include "partials/_nav_links.html" %}
+            </nav>
+            <div class="px-3 py-4 border-t border-line">
+                <a href="{% url 'training:workout-start' %}" class="flex items-center justify-center gap-2 rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">
+                    <span>+</span> Nuevo entrenamiento
+                </a>
+            </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col min-w-0">
+            <header class="md:hidden sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface-chrome/95 backdrop-blur px-4 py-3">
+                <a href="{% url 'dashboard:home' %}" class="font-display text-lg font-bold">Tonnage<span class="text-accent">.</span></a>
+                <button type="button" @click="mobileNavOpen = !mobileNavOpen" class="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-secondary">Menú</button>
+            </header>
+            <div x-data="{ mobileNavOpen: false }" x-show="mobileNavOpen" x-cloak class="md:hidden border-b border-line bg-surface-chrome px-3 py-2 space-y-1 text-sm">
+                {% include "partials/_nav_links.html" %}
+            </div>
+
+            <main class="flex-1 px-4 py-6 md:px-8 md:py-8 max-w-7xl w-full mx-auto">
+                {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for message in messages %}
+                    <div class="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-secondary">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+        {% block guest_content %}{% endblock %}
+    {% endif %}
+    {% block extra_body %}{% endblock %}
+</body>
+</html>

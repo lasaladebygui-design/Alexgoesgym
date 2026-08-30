@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Rutinas · Tonnage{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="font-display text-2xl font-bold">Tus rutinas</h1>
+    <a href="{% url 'training:routine-create' %}" class="btn-primary">+ Nueva rutina</a>
+</div>
+
+{% if routines %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    {% for routine in routines %}
+    <a href="{% url 'training:routine-detail' routine.pk %}" class="card-tile">
+        <div class="flex items-center justify-between">
+            <p class="tile-value text-base">{{ routine.name }}</p>
+            {% if routine.is_active %}<span class="pill bg-good/15 text-good">Activa</span>{% endif %}
+        </div>
+        <p class="tile-sub">{{ routine.days.count }} día{{ routine.days.count|pluralize }}</p>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-panel text-center py-12">
+    <p class="text-ink-muted mb-4">Todavía no tienes ninguna rutina.</p>
+    <a href="{% url 'training:routine-create' %}" class="btn-primary">+ Crear la primera</a>
+</div>
+{% endif %}
+{% endblock %}

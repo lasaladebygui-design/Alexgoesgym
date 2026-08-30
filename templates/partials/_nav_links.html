@@ -1,0 +1,20 @@
+{% url 'dashboard:home' as url_dashboard %}
+{% url 'training:workout-history' as url_history %}
+{% url 'training:routine-list' as url_routines %}
+{% url 'training:exercise-list' as url_exercises %}
+{% url 'training:bodyweight' as url_bodyweight %}
+{% url 'training:pr-list' as url_prs %}
+{% url 'training:goal-list' as url_goals %}
+{% with url_name=request.resolver_match.url_name|default:"" %}
+<a href="{{ url_dashboard }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_dashboard %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">📊 Dashboard</a>
+<a href="{{ url_history }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "workout" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏋️ Entrenamientos</a>
+<a href="{{ url_routines }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "routine" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">📋 Rutinas</a>
+<a href="{{ url_exercises }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "exercise" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">💪 Ejercicios</a>
+<a href="{{ url_bodyweight }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_bodyweight %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">⚖️ Cuerpo</a>
+<a href="{{ url_prs }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_prs %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏆 Récords</a>
+<a href="{{ url_goals }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "goal" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🎯 Objetivos</a>
+{% endwith %}
+<form method="post" action="{% url 'accounts:logout' %}" class="pt-2 mt-2 border-t border-line">
+    {% csrf_token %}
+    <button type="submit" class="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-raised hover:text-ink-primary text-left">🚪 Salir</button>
+</form>

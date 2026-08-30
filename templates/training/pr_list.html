@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Récords · Tonnage{% endblock %}
+{% block content %}
+<h1 class="font-display text-2xl font-bold mb-6">🏆 Récords personales</h1>
+
+{% regroup records by exercise as exercise_list %}
+{% if exercise_list %}
+<div class="space-y-4">
+    {% for group in exercise_list %}
+    <div class="card-panel">
+        <a href="{% url 'training:exercise-detail' group.grouper.slug %}" class="font-display text-lg font-semibold hover:text-accent">{{ group.grouper.name }}</a>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+            {% for pr in group.list %}
+            <div>
+                <p class="tile-label">{{ pr.get_kind_display }}</p>
+                <p class="font-mono text-ink-primary font-semibold">{{ pr.value_kg|floatformat:1 }} kg{% if pr.reps %} × {{ pr.reps }}{% endif %}</p>
+                <p class="text-xs text-ink-muted">{{ pr.achieved_at|date:"d/m/Y" }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card-panel text-center py-12">
+    <p class="text-ink-muted">Todavía no hay récords. Se detectan solos según vayas registrando series.</p>
+</div>
+{% endif %}
+{% endblock %}

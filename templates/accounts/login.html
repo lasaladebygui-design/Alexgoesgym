@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Entrar · Tonnage{% endblock %}
+{% block guest_content %}
+<div class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <a href="/" class="font-display text-3xl font-bold text-ink-primary">Tonnage<span class="text-accent">.</span></a>
+            <p class="text-ink-muted text-sm mt-2">Cada serie, cada kilo, cada progreso.</p>
+        </div>
+        <form method="post" class="bg-surface-raised border border-line rounded-2xl p-6 space-y-4">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+            <p class="text-sm text-critical">{{ form.non_field_errors.0 }}</p>
+            {% endif %}
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Usuario</label>
+                {{ form.username }}
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Contraseña</label>
+                {{ form.password }}
+            </div>
+            <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">Entrar</button>
+        </form>
+        <p class="text-center text-sm text-ink-muted mt-6">¿No tienes cuenta? <a href="{% url 'accounts:signup' %}" class="text-accent hover:text-accent-hover font-medium">Regístrate</a></p>
+    </div>
+</div>
+{% endblock %}

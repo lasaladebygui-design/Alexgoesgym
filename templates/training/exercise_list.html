@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Ejercicios · Tonnage{% endblock %}
+{% block content %}
+<h1 class="font-display text-2xl font-bold mb-6">Ejercicios</h1>
+
+<form method="get" class="flex flex-wrap gap-3 mb-6">
+    <input type="search" name="q" value="{{ query }}" placeholder="Buscar ejercicio..." class="flex-1 min-w-[200px]">
+    <select name="muscle" class="w-48" onchange="this.form.submit()">
+        <option value="">Todos los grupos</option>
+        {% for mg in muscle_groups %}
+        <option value="{{ mg.slug }}" {% if mg.slug == selected_muscle %}selected{% endif %}>{{ mg.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn-ghost">Filtrar</button>
+</form>
+
+{% if exercises %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    {% for ex in exercises %}
+    <a href="{% url 'training:exercise-detail' ex.slug %}" class="card-tile">
+        <p class="tile-value text-base">{{ ex.name }}</p>
+        <p class="tile-sub">{{ ex.primary_muscle.name }} · {{ ex.get_equipment_display }}</p>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-ink-muted">No hay ejercicios que coincidan.</p>
+{% endif %}
+{% endblock %}

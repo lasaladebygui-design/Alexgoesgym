@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta · Tonnage{% endblock %}
+{% block guest_content %}
+<div class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <a href="/" class="font-display text-3xl font-bold text-ink-primary">Tonnage<span class="text-accent">.</span></a>
+            <p class="text-ink-muted text-sm mt-2">Empieza a registrar tu progreso hoy.</p>
+        </div>
+        <form method="post" class="bg-surface-raised border border-line rounded-2xl p-6 space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="text-xs text-critical mt-1">{{ error }}</p>{% endfor %}
+                {% if field.help_text %}<p class="text-xs text-ink-muted mt-1">{{ field.help_text }}</p>{% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">Crear cuenta</button>
+        </form>
+        <p class="text-center text-sm text-ink-muted mt-6">¿Ya tienes cuenta? <a href="{% url 'accounts:login' %}" class="text-accent hover:text-accent-hover font-medium">Entra</a></p>
+    </div>
+</div>
+{% endblock %}

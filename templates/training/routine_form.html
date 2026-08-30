@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Nueva rutina · Tonnage{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+    <h1 class="font-display text-2xl font-bold mb-6">Nueva rutina</h1>
+    <form method="post" class="card-panel space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+        <div>
+            <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
+            {{ field }}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn-primary w-full">Crear</button>
+    </form>
+</div>
+{% endblock %}

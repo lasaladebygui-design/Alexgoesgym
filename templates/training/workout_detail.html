@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load training_extras humanize %}
+{% block title %}{{ workout.name }} · Tonnage{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="card-panel flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <p class="pill {% if workout.status == 'completed' %}bg-good/15 text-good{% else %}bg-critical/15 text-critical{% endif %} mb-1.5">
+                {% if workout.status == 'completed' %}✅ Completado{% else %}✕ Cancelado{% endif %}
+            </p>
+            <h1 class="font-display text-2xl font-bold">{{ workout.name }}</h1>
+            <p class="text-sm text-ink-muted">{{ workout.date|date:"l, d \d\e F \d\e Y" }} · {{ workout.start_time|time:"H:i" }}{% if workout.end_time %}–{{ workout.end_time|time:"H:i" }}{% endif %}</p>
+        </div>
+        <div class="grid grid-cols-3 gap-4 text-right">
+            <div><p class="tile-label">Series</p><p class="tile-value text-lg">{{ workout.total_sets }}</p></div>
+            <div><p class="tile-label">Volumen</p><p class="tile-value text-lg">{{ workout.total_volume_kg|floatformat:0|intcomma }}</p></div>
+            <div><p class="tile-label">Duración</p><p class="tile-value text-lg">{% if workout.duration_minutes is not None %}{{ workout.duration_minutes }}′{% else %}—{% endif %}</p></div>
+        </div>
+    </div>
+
+    {% if workout.energy_level or workout.rpe_session or workout.notes %}
+    <div class="card-panel flex flex-wrap gap-6 text-sm">
+        {% if workout.energy_level %}<div><p class="tile-label">Energía</p><p class="text-ink-secondary">{{ workout.get_energy_level_display }}</p></div>{% endif %}
+        {% if workout.rpe_session %}<div><p class="tile-label">RPE general</p><p class="text-ink-secondary font-mono">{{ workout.rpe_session }}</p></div>{% endif %}
+        {% if workout.notes %}<div class="flex-1 min-w-[200px]"><p class="tile-label">Notas</p><p class="text-ink-secondary">{{ workout.notes|linebreaksbr }}</p></div>{% endif %}
+    </div>
+    {% endif %}
+
+    {% for we in exercises %}
+    <div class="card-panel">
+        <h3 class="font-display text-lg font-semibold mb-1">{{ we.exercise.name }}</h3>
+        <p class="text-xs text-ink-muted mb-4">{{ we.exercise.primary_muscle.name }}{% if we.superset_group %} · <span class="text-series-violet">Superserie {{ we.superset_group }}</span>{% endif %}</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
+                <thead>
+                    <tr class="text-left text-ink-muted text-xs uppercase tracking-wide">
+                        <th class="px-2 py-1.5 font-medium w-10">#</th>
+                        <th class="px-2 py-1.5 font-medium">Tipo</th>
+                        <th class="px-2 py-1.5 font-medium">Peso</th>
+                        <th class="px-2 py-1.5 font-medium">Reps</th>
+                        <th class="px-2 py-1.5 font-medium">RPE/RIR</th>
+                        <th class="px-2 py-1.5 font-medium"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                    {% for set in we.sets.all %}
+                    <tr>
+                        <td class="px-2 py-2 font-mono text-ink-muted">{{ set.set_number }}</td>
+                        <td class="px-2 py-2">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="h-2 w-2 rounded-full {{ set.set_type|set_type_dot }}"></span>
+                                <span class="text-ink-secondary text-xs">{{ set.custom_type_label|default:set.get_set_type_display }}</span>
+                            </span>
+                        </td>
+                        <td class="px-2 py-2 font-mono">{% if set.weight_kg is not None %}{{ set.weight_display|floatformat:1 }} {{ set.input_unit }}{% else %}—{% endif %}</td>
+                        <td class="px-2 py-2 font-mono">{{ set.reps_performed|default:"—" }}</td>
+                        <td class="px-2 py-2 font-mono text-ink-secondary text-xs">{% if set.rpe %}RPE {{ set.rpe }}{% endif %}{% if set.rir %} · RIR {{ set.rir }}{% endif %}</td>
+                        <td class="px-2 py-2 text-right">{% if set.is_pr %}<span class="pill bg-accent/15 text-accent">🏆 PR</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

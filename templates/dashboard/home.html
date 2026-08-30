@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Dashboard · Tonnage{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- Resumen -->
+    <div class="rounded-2xl bg-gradient-to-br from-accent/20 via-surface-raised to-surface-raised border border-line p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-accent mb-2">Esta semana</p>
+        <p class="font-display text-2xl md:text-3xl font-bold text-ink-primary leading-snug">
+            Has hecho <span class="text-accent">{{ weekly_workouts }}</span> entrenamiento{{ weekly_workouts|pluralize }},
+            <span class="text-accent">{{ weekly_sets }}</span> series y
+            <span class="text-accent">{{ weekly_volume|floatformat:0|intcomma }} kg</span> de volumen.
+        </p>
+    </div>
+
+    <!-- Entrenamiento actual / último / próximo -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {% if current_workout %}
+        <a href="{% url 'training:workout-session' current_workout.pk %}" class="card-tile border-accent/40 bg-accent/10">
+            <p class="tile-label text-accent">🔴 En curso</p>
+            <p class="tile-value">{{ current_workout.name }}</p>
+            <p class="tile-sub">Empezado a las {{ current_workout.start_time|time:"H:i" }} · continuar →</p>
+        </a>
+        {% else %}
+        <a href="{% url 'training:workout-start' %}" class="card-tile hover:border-accent/40">
+            <p class="tile-label">Sin entrenamiento activo</p>
+            <p class="tile-value">+ Empezar ahora</p>
+        </a>
+        {% endif %}
+
+        <div class="card-tile">
+            <p class="tile-label">Último entrenamiento</p>
+            {% if last_workout %}
+            <p class="tile-value">{{ last_workout.name }}</p>
+            <p class="tile-sub">{{ last_workout.date|naturalday }} · {{ last_workout.total_sets }} series · {{ last_workout.total_volume_kg|floatformat:0|intcomma }} kg</p>
+            {% else %}
+            <p class="tile-sub">Todavía no has completado ninguno.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-tile">
+            <p class="tile-label">Próximo (según tu rutina)</p>
+            {% if next_routine_day %}
+            <p class="tile-value">{{ next_routine_day.name }}</p>
+            <p class="tile-sub">{{ next_routine_day.routine.name }}</p>
+            {% else %}
+            <p class="tile-sub">Activa una rutina para ver sugerencia.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stat tiles -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card-tile">
+            <p class="tile-label">Peso corporal</p>
+            <p class="tile-value font-mono">{% if bodyweight_now %}{{ bodyweight_now.weight_display|floatformat:1 }} {{ bodyweight_now.input_unit }}{% else %}—{% endif %}</p>
+            <p class="tile-sub">{% if bodyweight_now %}{{ bodyweight_now.date|naturalday }}{% else %}Sin registros{% endif %}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Volumen semanal</p>
+            <p class="tile-value font-mono">{{ weekly_volume|floatformat:0|intcomma }} <span class="text-sm text-ink-muted">kg</span></p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Volumen mensual</p>
+            <p class="tile-value font-mono">{{ monthly_volume|floatformat:0|intcomma }} <span class="text-sm text-ink-muted">kg</span></p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Racha actual</p>
+            <p class="tile-value font-mono">{{ streak_days }} <span class="text-sm text-ink-muted">día{{ streak_days|pluralize }}</span></p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Series (semana)</p>
+            <p class="tile-value font-mono">{{ weekly_sets }}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Entrenamientos totales</p>
+            <p class="tile-value font-mono">{{ total_workouts }}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Series totales</p>
+            <p class="tile-value font-mono">{{ total_sets|intcomma }}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Tiempo entrenando</p>
+            <p class="tile-value font-mono">{{ total_time_hours }} <span class="text-sm text-ink-muted">h</span></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Evolución del peso -->
+        <div class="lg:col-span-2 card-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-display text-lg font-semibold">Evolución del peso corporal</h2>
+                <a href="{% url 'training:bodyweight' %}" class="text-xs text-accent hover:text-accent-hover font-medium">Ver todo →</a>
+            </div>
+            {% if bodyweight_chart_values %}
+            <div class="h-56"><canvas id="bw-chart"></canvas></div>
+            {% else %}
+            <p class="text-sm text-ink-muted">Registra tu peso para ver la gráfica aquí.</p>
+            {% endif %}
+        </div>
+
+        <!-- Grupos musculares recientes -->
+        <div class="card-panel">
+            <h2 class="font-display text-lg font-semibold mb-4">Grupos musculares (7 días)</h2>
+            {% if muscle_groups_recent %}
+            <ul class="space-y-2.5">
+                {% for name, sets in muscle_groups_recent %}
+                <li>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-ink-secondary">{{ name|default:"Sin clasificar" }}</span>
+                        <span class="font-mono text-ink-muted">{{ sets }} series</span>
+                    </div>
+                    <div class="h-1.5 rounded-full bg-line overflow-hidden">
+                        <div class="h-full bg-series-blue rounded-full" style="width: {% widthratio sets muscle_groups_recent.0.1 100 %}%"></div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-ink-muted">Sin series registradas esta semana todavía.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- PRs recientes -->
+        <div class="card-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-display text-lg font-semibold">🏆 PRs recientes</h2>
+                <a href="{% url 'training:pr-list' %}" class="text-xs text-accent hover:text-accent-hover font-medium">Ver todos →</a>
+            </div>
+            {% if recent_prs %}
+            <ul class="divide-y divide-line">
+                {% for pr in recent_prs %}
+                <li class="py-2.5 flex items-center justify-between text-sm">
+                    <div>
+                        <p class="text-ink-primary font-medium">{{ pr.exercise.name }}</p>
+                        <p class="text-ink-muted text-xs">{{ pr.get_kind_display }} · {{ pr.achieved_at|naturalday }}</p>
+                    </div>
+                    <p class="font-mono text-accent font-semibold">{{ pr.value_kg|floatformat:1 }} kg{% if pr.reps %} × {{ pr.reps }}{% endif %}</p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-ink-muted">Todavía no hay PRs registrados. ¡Se irán detectando solos al registrar series!</p>
+            {% endif %}
+        </div>
+
+        <!-- Objetivos -->
+        <div class="card-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-display text-lg font-semibold">🎯 Objetivos activos</h2>
+                <a href="{% url 'training:goal-list' %}" class="text-xs text-accent hover:text-accent-hover font-medium">Ver todos →</a>
+            </div>
+            {% if active_goals %}
+            <ul class="divide-y divide-line">
+                {% for goal in active_goals %}
+                <li class="py-2.5 text-sm">
+                    <p class="text-ink-primary font-medium">{{ goal.title }}</p>
+                    <p class="text-ink-muted text-xs">{% if goal.target_date %}Para el {{ goal.target_date|date:"d/m/Y" }}{% else %}Sin fecha límite{% endif %}</p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-ink-muted">Sin objetivos activos. <a href="{% url 'training:goal-create' %}" class="text-accent hover:text-accent-hover">Crea uno →</a></p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_body %}
+{% if bodyweight_chart_values %}
+<script>
+new Chart(document.getElementById('bw-chart'), {
+    type: 'line',
+    data: {
+        labels: {{ bodyweight_chart_labels|safe }},
+        datasets: [{
+            data: {{ bodyweight_chart_values|safe }},
+            borderColor: '#3987e5', backgroundColor: 'rgba(57,135,229,0.12)',
+            fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#898781', maxTicksLimit: 6 } },
+            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    },
+});
+</script>
+{% endif %}
+{% endblock %}

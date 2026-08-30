@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load training_extras %}
+{% block title %}{{ exercise.name }} · Tonnage{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div>
+        <h1 class="font-display text-2xl font-bold">{{ exercise.name }}</h1>
+        <p class="text-sm text-ink-muted mt-1">
+            {{ exercise.primary_muscle.name }}
+            {% if exercise.secondary_muscles.all %} · secundario: {% for m in exercise.secondary_muscles.all %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+            · {{ exercise.get_equipment_display }} · {{ exercise.get_category_display }}
+        </p>
+    </div>
+
+    {% if prs %}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {% for pr in prs %}
+        <div class="card-tile">
+            <p class="tile-label">{{ pr.get_kind_display }}</p>
+            <p class="tile-value font-mono">{{ pr.value_kg|floatformat:1 }}<span class="text-sm text-ink-muted"> kg</span>{% if pr.reps %} <span class="text-sm text-ink-muted">× {{ pr.reps }}</span>{% endif %}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-4">Evolución de fuerza (1RM estimado)</h2>
+        {% if chart_values %}
+        <div class="h-64"><canvas id="strength-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Registra series de este ejercicio para ver tu progresión.</p>
+        {% endif %}
+    </div>
+
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-4">Series recientes</h2>
+        {% if recent_sets %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
+                <thead>
+                    <tr class="text-left text-ink-muted text-xs uppercase tracking-wide">
+                        <th class="px-2 py-1.5 font-medium">Fecha</th>
+                        <th class="px-2 py-1.5 font-medium">Tipo</th>
+                        <th class="px-2 py-1.5 font-medium">Peso</th>
+                        <th class="px-2 py-1.5 font-medium">Reps</th>
+                        <th class="px-2 py-1.5 font-medium">1RM est.</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                    {% for set in recent_sets %}
+                    <tr>
+                        <td class="px-2 py-2 text-ink-secondary">{{ set.workout_exercise.workout.date|date:"d/m/Y" }}</td>
+                        <td class="px-2 py-2"><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ set.set_type|set_type_dot }}"></span><span class="text-ink-secondary text-xs">{{ set.get_set_type_display }}</span></span></td>
+                        <td class="px-2 py-2 font-mono">{{ set.weight_display|floatformat:1 }} {{ set.input_unit }}</td>
+                        <td class="px-2 py-2 font-mono">{{ set.reps_performed }}</td>
+                        <td class="px-2 py-2 font-mono text-ink-secondary">{% if set.estimated_1rm_kg %}{{ set.estimated_1rm_kg|floatformat:1 }} kg{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Sin series registradas todavía.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_body %}
+{% if chart_values %}
+<script>
+new Chart(document.getElementById('strength-chart'), {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            label: '1RM estimado (kg)',
+            data: {{ chart_values|safe }},
+            borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.12)',
+            fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2,
+            pointBackgroundColor: '#eb6834',
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(1)} kg` } },
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#898781', maxTicksLimit: 8 } },
+            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    },
+});
+</script>
+{% endif %}
+{% endblock %}

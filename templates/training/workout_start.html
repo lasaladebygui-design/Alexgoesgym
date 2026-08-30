@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Nuevo entrenamiento · Tonnage{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+    <h1 class="font-display text-2xl font-bold mb-1">Empezar entrenamiento</h1>
+    <p class="text-sm text-ink-muted mb-6">Elige un día de tu rutina o entrena libre.</p>
+    <form method="post" class="card-panel space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+        <div>
+            <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="text-xs text-ink-muted mt-1">{{ field.help_text }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">🔥 Empezar</button>
+    </form>
+</div>
+{% endblock %}
