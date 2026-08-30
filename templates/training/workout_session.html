@@ -232,7 +232,7 @@
             {% csrf_token %}
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-[11px] text-ink-muted mb-1">Ejercicio</label>
-                {{ add_exercise_form.exercise }}
+                {% include "training/_exercise_picker.html" with field_name="exercise" required=True %}
             </div>
             <div class="w-32">
                 <label class="block text-[11px] text-ink-muted mb-1">Superserie (opcional)</label>

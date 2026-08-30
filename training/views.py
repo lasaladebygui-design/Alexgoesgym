@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -28,7 +30,7 @@ from .models import (
     Workout,
     WorkoutExercise,
 )
-from .services import strength_progression
+from .services import exercises_picker_data, strength_progression
 
 
 # --- Registro de entrenamiento (la función principal) -----------------------
@@ -90,6 +92,7 @@ def workout_session(request, pk):
     return render(request, "training/workout_session.html", {
         "workout": workout, "rows": rows,
         "add_exercise_form": add_exercise_form, "finish_form": finish_form,
+        "exercises_json": json.dumps(exercises_picker_data(request.user)),
     })
 
 
@@ -226,7 +229,10 @@ def routine_detail(request, pk):
     routine = get_object_or_404(Routine.objects.prefetch_related("days__exercises__exercise"), pk=pk, user=request.user)
     day_form = RoutineDayForm()
     re_form = RoutineExerciseForm(user=request.user, initial={"target_sets": 3})
-    return render(request, "training/routine_detail.html", {"routine": routine, "day_form": day_form, "re_form": re_form})
+    return render(request, "training/routine_detail.html", {
+        "routine": routine, "day_form": day_form, "re_form": re_form,
+        "exercises_json": json.dumps(exercises_picker_data(request.user)),
+    })
 
 
 @login_required
@@ -373,7 +379,9 @@ def goal_create(request):
             return redirect("training:goal-list")
     else:
         form = GoalForm(user=request.user)
-    return render(request, "training/goal_form.html", {"form": form})
+    return render(request, "training/goal_form.html", {
+        "form": form, "exercises_json": json.dumps(exercises_picker_data(request.user)),
+    })
 
 
 @login_required

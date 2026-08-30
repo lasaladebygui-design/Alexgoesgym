@@ -8,6 +8,37 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            // Buscador de ejercicio (input + lista filtrada + input oculto con
+            // el id elegido) -- con 100+ ejercicios en el catálogo, un
+            // <select> nativo es incómodo; esto filtra al teclear, sin ir
+            // al servidor (la lista ya viene embebida en la página).
+            Alpine.data('exercisePicker', (items, initialId, initialLabel) => ({
+                items, query: initialLabel || '', selectedId: initialId || '', open: false, highlighted: 0,
+                get filtered() {
+                    const q = this.query.trim().toLowerCase();
+                    const list = q ? this.items.filter(i => i.search.includes(q)) : this.items;
+                    return list.slice(0, 40);
+                },
+                select(item) {
+                    this.selectedId = item.id;
+                    this.query = item.name;
+                    this.open = false;
+                },
+                onInput() {
+                    this.open = true;
+                    this.highlighted = 0;
+                    const exact = this.items.find(i => i.name === this.query);
+                    this.selectedId = exact ? exact.id : '';
+                },
+                onEnter() {
+                    const opts = this.filtered;
+                    if (opts[this.highlighted]) this.select(opts[this.highlighted]);
+                },
+            }));
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script>

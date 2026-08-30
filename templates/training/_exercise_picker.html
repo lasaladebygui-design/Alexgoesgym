@@ -1,0 +1,39 @@
+{% comment %}
+Buscador de ejercicio reutilizable. Contexto esperado:
+  - exercises_json: lista de {id, name, muscle, search} en JSON (ver
+    training.services.exercises_picker_data).
+  - field_name: nombre del <input type="hidden"> que se envía en el POST
+    (debe coincidir con el campo del form de Django que lo recibe).
+  - picker_id: prefijo único para los ids del DOM (por si hay más de un
+    picker en la misma página).
+  - selected_id / selected_label: opcional, para dejarlo preseleccionado.
+  - placeholder: opcional.
+  - required: opcional (bool) -- si se deja sin elegir nada y es
+    obligatorio, el input oculto queda vacío y Django lo rechaza igual
+    que cualquier campo requerido sin rellenar.
+{% endcomment %}
+<div x-data="exercisePicker({{ exercises_json }}, '{{ selected_id|default:"" }}', '{{ selected_label|default:""|escapejs }}')"
+     class="relative" @click.outside="open = false">
+    <input type="hidden" name="{{ field_name }}" :value="selectedId" {% if required %}required{% endif %}>
+    <input type="text" x-model="query" @focus="open = true" @input="onInput()"
+           @keydown.down.prevent="highlighted = Math.min(highlighted + 1, filtered.length - 1)"
+           @keydown.up.prevent="highlighted = Math.max(highlighted - 1, 0)"
+           @keydown.enter.prevent="onEnter()"
+           @keydown.escape="open = false"
+           placeholder="{{ placeholder|default:'Buscar ejercicio...' }}" autocomplete="off">
+    <div x-show="open && filtered.length" x-cloak
+         class="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-line bg-surface-raised shadow-xl">
+        <template x-for="(ex, idx) in filtered" :key="ex.id">
+            <button type="button" @click="select(ex)" @mouseenter="highlighted = idx"
+                    class="block w-full text-left px-3 py-2 text-sm"
+                    :class="idx === highlighted ? 'bg-accent/15 text-accent' : 'text-ink-secondary'">
+                <span x-text="ex.name"></span>
+                <span class="text-ink-muted text-xs" x-text="' · ' + ex.muscle"></span>
+            </button>
+        </template>
+    </div>
+    <div x-show="open && query && !filtered.length" x-cloak
+         class="absolute z-30 mt-1 w-full rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-ink-muted shadow-xl">
+        Sin resultados para «<span x-text="query"></span>».
+    </div>
+</div>

@@ -6,11 +6,18 @@
     <form method="post" class="card-panel space-y-4">
         {% csrf_token %}
         {% for field in form %}
+        {% if field.name == "exercise" %}
+        <div>
+            <label class="block text-xs font-medium text-ink-secondary mb-1.5">Ejercicio (opcional)</label>
+            {% include "training/_exercise_picker.html" with field_name="exercise" %}
+        </div>
+        {% else %}
         <div>
             <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
             {{ field }}
             {% for error in field.errors %}<p class="text-xs text-critical mt-1">{{ error }}</p>{% endfor %}
         </div>
+        {% endif %}
         {% endfor %}
         <button type="submit" class="btn-primary w-full">Crear objetivo</button>
     </form>

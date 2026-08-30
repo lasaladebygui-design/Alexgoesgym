@@ -14,6 +14,32 @@ def current_workout(user):
     return Workout.objects.filter(user=user, status=Workout.Status.IN_PROGRESS).order_by("-start_time").first()
 
 
+def exercises_picker_data(user):
+    """Catálogo de ejercicios visible para `user`, en la forma que espera
+    el buscador de ejercicio (ver training/_exercise_picker.html): un
+    JSON ligero con id/nombre/músculo y un campo `search` ya en
+    minúsculas y sin tildes, para filtrar al teclear sin ir al
+    servidor -- con 100+ ejercicios en el catálogo, hace falta algo más
+    cómodo que un <select> nativo."""
+    import unicodedata
+
+    from .forms import visible_exercises_q
+    from .models import Exercise
+
+    def normalize(text):
+        stripped = unicodedata.normalize("NFKD", text)
+        return "".join(ch for ch in stripped if not unicodedata.combining(ch)).lower()
+
+    exercises = Exercise.objects.filter(visible_exercises_q(user), is_active=True).select_related("primary_muscle").order_by("name")
+    return [
+        {
+            "id": ex.pk, "name": ex.name, "muscle": ex.primary_muscle.name,
+            "search": normalize(f"{ex.name} {ex.primary_muscle.name}"),
+        }
+        for ex in exercises
+    ]
+
+
 def last_workout(user):
     return Workout.objects.filter(user=user, status=Workout.Status.COMPLETED).order_by("-start_time").first()
 

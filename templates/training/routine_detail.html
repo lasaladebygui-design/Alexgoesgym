@@ -51,7 +51,7 @@
             {% csrf_token %}
             <div class="col-span-2 sm:col-span-1">
                 <label class="block text-[11px] text-ink-muted mb-1">Ejercicio</label>
-                {{ re_form.exercise }}
+                {% include "training/_exercise_picker.html" with field_name="exercise" required=True %}
             </div>
             <div>
                 <label class="block text-[11px] text-ink-muted mb-1">Series</label>
