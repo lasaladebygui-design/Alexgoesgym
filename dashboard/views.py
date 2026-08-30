@@ -35,9 +35,11 @@ def home(request):
         "total_time_hours": round(services.total_time_seconds(user) / 3600, 1),
         "recent_prs": services.recent_prs(user),
         "streak_days": services.current_streak_days(user),
-        "active_goals": Goal.objects.filter(user=user, achieved=False).select_related("exercise")[:5],
         "muscle_groups_recent": services.muscle_groups_recent(user, days=7),
     }
+
+    active_goals = Goal.objects.filter(user=user, achieved=False).select_related("exercise")[:5]
+    context["goal_rows"] = [{"goal": g, "progress": services.goal_progress(user, g)} for g in active_goals]
 
     bw_labels = [row["date"].isoformat() for row in context["bodyweight_trend"]]
     bw_values = [float(row["weight_kg"]) for row in context["bodyweight_trend"]]

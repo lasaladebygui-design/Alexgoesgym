@@ -244,3 +244,46 @@ def strength_progression(user, exercise, days=180):
         .order_by("workout_exercise__workout__date")
     )
     return [(r["workout_exercise__workout__date"], r["best"]) for r in rows]
+
+
+def goal_progress(user, goal):
+    """Cuánto le falta a `goal` según lo ya registrado -- comparado con
+    su mejor 1RM estimado si es un objetivo de PR, con el último peso
+    corporal si es de peso, o con los entrenamientos de esta semana si
+    es de frecuencia. Devuelve None cuando el objetivo es "personalizado"
+    (sin nada objetivo con lo que compararlo) o le falta el dato de
+    origen (por ejemplo, un objetivo de PR sin ejercicio elegido)."""
+    if goal.kind == goal.Kind.EXERCISE_PR and goal.exercise and goal.target_value_kg:
+        current = (
+            PersonalRecord.objects.filter(user=user, exercise=goal.exercise, kind=PersonalRecord.Kind.EST_1RM)
+            .values_list("value_kg", flat=True).first()
+        )
+        current = current or Decimal("0")
+        return _progress_dict(current, goal.target_value_kg, "kg")
+
+    if goal.kind == goal.Kind.BODYWEIGHT and goal.target_value_kg:
+        latest = BodyWeightEntry.objects.filter(user=user).order_by("-date", "-created_at").first()
+        if not latest:
+            return None
+        # El peso puede ser un objetivo de subir O de bajar -- el progreso
+        # se mide como distancia recorrida desde el primer registro, no
+        # como "más es mejor" a secas.
+        first = BodyWeightEntry.objects.filter(user=user).order_by("date", "created_at").first()
+        start = first.weight_kg if first else latest.weight_kg
+        total_distance = abs(goal.target_value_kg - start)
+        covered = abs(latest.weight_kg - start)
+        pct = 100 if total_distance == 0 else min(100, round(float(covered / total_distance) * 100))
+        return {"current": latest.weight_kg, "target": goal.target_value_kg, "unit": "kg", "pct": pct}
+
+    if goal.kind == goal.Kind.FREQUENCY and goal.target_workouts_per_week:
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+        current = workouts_since(user, week_start)
+        return _progress_dict(current, goal.target_workouts_per_week, "entr./semana")
+
+    return None
+
+
+def _progress_dict(current, target, unit):
+    pct = 100 if not target else min(100, round(float(current) / float(target) * 100))
+    return {"current": current, "target": target, "unit": unit, "pct": pct}

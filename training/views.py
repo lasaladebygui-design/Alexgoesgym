@@ -404,8 +404,11 @@ def pr_list(request):
 
 @login_required
 def goal_list(request):
+    from .services import goal_progress
+
     goals = Goal.objects.filter(user=request.user).select_related("exercise")
-    return render(request, "training/goal_list.html", {"goals": goals})
+    rows = [{"goal": g, "progress": goal_progress(request.user, g)} for g in goals]
+    return render(request, "training/goal_list.html", {"rows": rows})
 
 
 @login_required

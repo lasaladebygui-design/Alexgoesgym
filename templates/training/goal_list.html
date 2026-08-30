@@ -6,31 +6,43 @@
     <a href="{% url 'training:goal-create' %}" class="btn-primary">+ Nuevo objetivo</a>
 </div>
 
-{% if goals %}
+{% if rows %}
 <div class="space-y-2.5">
-    {% for goal in goals %}
-    <div class="card-tile flex items-center justify-between gap-4 {% if goal.achieved %}opacity-60{% endif %}">
-        <div>
-            <p class="tile-value text-base">{{ goal.title }}</p>
-            <p class="tile-sub">
-                {{ goal.get_kind_display }}
-                {% if goal.target_date %} · para el {{ goal.target_date|date:"d/m/Y" }}{% endif %}
-                {% if goal.target_value_kg %} · {{ goal.target_value_kg }} kg{% endif %}
-            </p>
+    {% for row in rows %}
+    {% with goal=row.goal progress=row.progress %}
+    <div class="card-tile {% if goal.achieved %}opacity-60{% endif %}">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <p class="tile-value text-base">{{ goal.title }}</p>
+                <p class="tile-sub">
+                    {{ goal.get_kind_display }}
+                    {% if goal.target_date %} · para el {{ goal.target_date|date:"d/m/Y" }}{% endif %}
+                    {% if progress %} · {{ progress.current|floatformat:1 }}/{{ progress.target|floatformat:1 }} {{ progress.unit }}{% elif goal.target_value_kg %} · {{ goal.target_value_kg }} kg{% endif %}
+                </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <form method="post" action="{% url 'training:goal-toggle' goal.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="pill {% if goal.achieved %}bg-good/15 text-good{% else %}bg-line text-ink-secondary{% endif %}">
+                        {% if goal.achieved %}✅ Conseguido{% else %}Marcar conseguido{% endif %}
+                    </button>
+                </form>
+                <form method="post" action="{% url 'training:goal-delete' goal.pk %}" onsubmit="return confirm('¿Eliminar este objetivo?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger">✕</button>
+                </form>
+            </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-            <form method="post" action="{% url 'training:goal-toggle' goal.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="pill {% if goal.achieved %}bg-good/15 text-good{% else %}bg-line text-ink-secondary{% endif %}">
-                    {% if goal.achieved %}✅ Conseguido{% else %}Marcar conseguido{% endif %}
-                </button>
-            </form>
-            <form method="post" action="{% url 'training:goal-delete' goal.pk %}" onsubmit="return confirm('¿Eliminar este objetivo?');">
-                {% csrf_token %}
-                <button type="submit" class="btn-danger">✕</button>
-            </form>
+        {% if progress and not goal.achieved %}
+        <div class="mt-3">
+            <div class="h-1.5 rounded-full bg-line overflow-hidden">
+                <div class="h-full bg-accent rounded-full" style="width: {{ progress.pct }}%"></div>
+            </div>
+            <p class="text-[11px] text-ink-muted mt-1">{{ progress.pct }}% del objetivo</p>
         </div>
+        {% endif %}
     </div>
+    {% endwith %}
     {% endfor %}
 </div>
 {% else %}

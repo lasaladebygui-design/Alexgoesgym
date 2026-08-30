@@ -173,12 +173,17 @@
                 <h2 class="font-display text-lg font-semibold">🎯 Objetivos activos</h2>
                 <a href="{% url 'training:goal-list' %}" class="text-xs text-accent hover:text-accent-hover font-medium">Ver todos →</a>
             </div>
-            {% if active_goals %}
+            {% if goal_rows %}
             <ul class="divide-y divide-line">
-                {% for goal in active_goals %}
+                {% for row in goal_rows %}
                 <li class="py-2.5 text-sm">
-                    <p class="text-ink-primary font-medium">{{ goal.title }}</p>
-                    <p class="text-ink-muted text-xs">{% if goal.target_date %}Para el {{ goal.target_date|date:"d/m/Y" }}{% else %}Sin fecha límite{% endif %}</p>
+                    <p class="text-ink-primary font-medium">{{ row.goal.title }}</p>
+                    <p class="text-ink-muted text-xs">{% if row.goal.target_date %}Para el {{ row.goal.target_date|date:"d/m/Y" }}{% else %}Sin fecha límite{% endif %}</p>
+                    {% if row.progress %}
+                    <div class="h-1.5 rounded-full bg-line overflow-hidden mt-1.5">
+                        <div class="h-full bg-accent rounded-full" style="width: {{ row.progress.pct }}%"></div>
+                    </div>
+                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>

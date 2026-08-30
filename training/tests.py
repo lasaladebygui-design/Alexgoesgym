@@ -267,6 +267,28 @@ class GoalTests(TonnageTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "100kg en banca")
 
+    def test_progreso_de_objetivo_de_pr_segun_el_1rm_actual(self):
+        workout = Workout.objects.create(
+            user=self.user, name="Test", status=Workout.Status.COMPLETED,
+            start_time=Workout.start_time.field.default(),
+        )
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        # 80kg x 5 -> 1RM estimado ~93,3kg (Epley).
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=5)
+
+        goal = Goal.objects.create(
+            user=self.user, kind=Goal.Kind.EXERCISE_PR, title="100kg en banca",
+            exercise=self.bench, target_value_kg=Decimal("100"),
+        )
+        from training.services import goal_progress
+        progress = goal_progress(self.user, goal)
+        self.assertIsNotNone(progress)
+        self.assertAlmostEqual(float(progress["current"]), 93.33, places=1)
+        self.assertEqual(progress["pct"], 93)
+
+        response = self.client.get(reverse("training:goal-list"))
+        self.assertContains(response, "93% del objetivo")
+
 
 class DashboardTests(TonnageTestCase):
     def test_dashboard_carga_sin_datos(self):
