@@ -43,7 +43,7 @@ def visible_exercises_q(user):
 
 
 class WorkoutExerciseAddForm(forms.Form):
-    exercise = forms.ModelChoiceField(label="Ejercicio", queryset=Exercise.objects.none())
+    exercise = forms.ModelChoiceField(label="Ejercicio", queryset=Exercise.objects.none(), empty_label="Elige un ejercicio...")
     superset_group = forms.IntegerField(label="Grupo de superserie", required=False, min_value=1)
 
     def __init__(self, *args, user=None, **kwargs):
@@ -128,6 +128,7 @@ class RoutineExerciseForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["exercise"].queryset = Exercise.objects.filter(visible_exercises_q(user)).order_by("name")
+        self.fields["exercise"].empty_label = "Elige un ejercicio..."
 
 
 class GoalForm(forms.ModelForm):
@@ -146,3 +147,4 @@ class GoalForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["exercise"].queryset = Exercise.objects.filter(visible_exercises_q(user)).order_by("name")
         self.fields["exercise"].required = False
+        self.fields["exercise"].empty_label = "Ninguno en particular"
