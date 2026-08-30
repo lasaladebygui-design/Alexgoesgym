@@ -72,8 +72,15 @@ def workout_session(request, pk):
                 "weight": last.weight_display, "unit": last.input_unit, "set_type": last.set_type,
                 "reps_target": last.reps_target, "rpe": last.rpe, "rir": last.rir,
             })
+        set_rows = [
+            {
+                "set": s,
+                "edit_form": SetEntryForm(instance=s, initial={"weight": s.weight_display, "unit": s.input_unit}),
+            }
+            for s in sets
+        ]
         rows.append({
-            "we": we, "sets": sets,
+            "we": we, "set_rows": set_rows,
             "add_form": SetEntryForm(initial=initial),
             "volume": we.total_volume_kg,
         })
@@ -131,12 +138,11 @@ def set_edit(request, pk, set_pk):
     workout = get_object_or_404(Workout, pk=pk, user=request.user)
     set_entry = get_object_or_404(SetEntry, pk=set_pk, workout_exercise__workout=workout)
     if request.method == "POST":
-        from decimal import Decimal
-        form = SetEntryForm(request.POST, instance=set_entry, initial={
-            "weight": set_entry.weight_display, "unit": set_entry.input_unit,
-        })
+        form = SetEntryForm(request.POST, instance=set_entry)
         if form.is_valid():
             form.save()
+        else:
+            messages.error(request, "No se pudo guardar la serie: revisa los datos.")
     return redirect("training:workout-session", pk=pk)
 
 

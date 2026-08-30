@@ -104,6 +104,28 @@ class WorkoutFlowTests(TonnageTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Press banca")
 
+    def test_editar_una_serie_ya_registrada(self):
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        set_entry = SetEntry.objects.create(
+            workout_exercise=we, set_number=1, weight_kg=Decimal("50"), reps_performed=10, completed=True,
+        )
+        response = self.client.post(reverse("training:set-edit", args=[workout.pk, set_entry.pk]), {
+            "set_type": SetEntry.SetType.TOP_SET, "weight": "60", "unit": "kg",
+            "reps_performed": "8", "completed": "on",
+        })
+        self.assertRedirects(response, reverse("training:workout-session", args=[workout.pk]))
+        set_entry.refresh_from_db()
+        self.assertEqual(set_entry.weight_kg, Decimal("60"))
+        self.assertEqual(set_entry.reps_performed, 8)
+        self.assertEqual(set_entry.set_type, SetEntry.SetType.TOP_SET)
+
+        # La pantalla de sesión, con el formulario de edición ya montado
+        # para cada serie, sigue renderizando bien.
+        response = self.client.get(reverse("training:workout-session", args=[workout.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "60")
+
     def test_borrar_una_serie_renumera_las_siguientes(self):
         workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
         we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)

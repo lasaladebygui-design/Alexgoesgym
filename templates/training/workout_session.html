@@ -57,7 +57,7 @@
 
     <!-- Ejercicios -->
     {% for row in rows %}
-    <div class="card-panel" x-data="{ addOpen: {{ row.sets|length|yesno:'false,true' }}, detailsOpen: false }">
+    <div class="card-panel" x-data="{ addOpen: {{ row.set_rows|length|yesno:'false,true' }}, detailsOpen: false }">
         <div class="flex items-start justify-between gap-3 mb-4">
             <div>
                 <h3 class="font-display text-lg font-semibold">{{ row.we.exercise.name }}</h3>
@@ -69,7 +69,7 @@
             </div>
         </div>
 
-        {% if row.sets %}
+        {% if row.set_rows %}
         <div class="overflow-x-auto -mx-2">
             <table class="w-full text-sm min-w-[560px]">
                 <thead>
@@ -84,30 +84,68 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-line">
-                    {% for set in row.sets %}
-                    <tr class="{% if not set.completed %}opacity-50{% endif %}">
-                        <td class="px-2 py-2 font-mono text-ink-muted">{{ set.set_number }}</td>
-                        <td class="px-2 py-2">
+                    {% for set_row in row.set_rows %}
+                    {% with set=set_row.set %}
+                    <tr x-data="{ editing: false }" class="{% if not set.completed %}opacity-50{% endif %}">
+                        <td class="px-2 py-2 font-mono text-ink-muted" x-show="!editing">{{ set.set_number }}</td>
+                        <td class="px-2 py-2" x-show="!editing">
                             <span class="inline-flex items-center gap-1.5">
                                 <span class="h-2 w-2 rounded-full {{ set.set_type|set_type_dot }}"></span>
                                 <span class="text-ink-secondary text-xs">{{ set.custom_type_label|default:set.get_set_type_display }}</span>
                             </span>
                         </td>
-                        <td class="px-2 py-2 font-mono">{% if set.weight_kg is not None %}{{ set.weight_display|floatformat:1 }} {{ set.input_unit }}{% else %}—{% endif %}</td>
-                        <td class="px-2 py-2 font-mono">{{ set.reps_performed|default:"—" }}{% if set.reps_target %}<span class="text-ink-muted">/{{ set.reps_target }}</span>{% endif %}</td>
-                        <td class="px-2 py-2 font-mono text-ink-secondary text-xs">
+                        <td class="px-2 py-2 font-mono" x-show="!editing">{% if set.weight_kg is not None %}{{ set.weight_display|floatformat:1 }} {{ set.input_unit }}{% else %}—{% endif %}</td>
+                        <td class="px-2 py-2 font-mono" x-show="!editing">{{ set.reps_performed|default:"—" }}{% if set.reps_target %}<span class="text-ink-muted">/{{ set.reps_target }}</span>{% endif %}</td>
+                        <td class="px-2 py-2 font-mono text-ink-secondary text-xs" x-show="!editing">
                             {% if set.rpe %}RPE {{ set.rpe }}{% endif %}{% if set.rpe and set.rir %} · {% endif %}{% if set.rir %}RIR {{ set.rir }}{% endif %}
                             {% if not set.rpe and not set.rir %}—{% endif %}
                         </td>
-                        <td class="px-2 py-2 font-mono text-ink-secondary">{% if set.estimated_1rm_kg %}{{ set.estimated_1rm_kg|kg:set.input_unit|floatformat:1 }}{% else %}—{% endif %}</td>
-                        <td class="px-2 py-2 text-right whitespace-nowrap">
+                        <td class="px-2 py-2 font-mono text-ink-secondary" x-show="!editing">{% if set.estimated_1rm_kg %}{{ set.estimated_1rm_kg|kg:set.input_unit|floatformat:1 }}{% else %}—{% endif %}</td>
+                        <td class="px-2 py-2 text-right whitespace-nowrap" x-show="!editing">
                             {% if set.is_pr %}<span class="pill bg-accent/15 text-accent mr-1">🏆 PR</span>{% endif %}
+                            <button type="button" @click="editing = true" class="text-ink-muted hover:text-accent mr-1" title="Editar">✏️</button>
                             <form method="post" action="{% url 'training:set-delete' workout.pk set.pk %}" class="inline" onsubmit="return confirm('¿Borrar esta serie?');">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-danger">✕</button>
                             </form>
                         </td>
+
+                        <td colspan="7" class="px-2 py-2" x-show="editing" x-cloak>
+                            <form method="post" action="{% url 'training:set-edit' workout.pk set.pk %}" class="flex flex-wrap items-end gap-2">
+                                {% csrf_token %}
+                                <div class="w-28">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">Tipo</label>
+                                    {{ set_row.edit_form.set_type }}
+                                </div>
+                                <div class="w-20">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">Peso</label>
+                                    {{ set_row.edit_form.weight }}
+                                </div>
+                                <div class="w-16">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">Unidad</label>
+                                    {{ set_row.edit_form.unit }}
+                                </div>
+                                <div class="w-16">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">Reps</label>
+                                    {{ set_row.edit_form.reps_performed }}
+                                </div>
+                                <div class="w-16">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">RPE</label>
+                                    {{ set_row.edit_form.rpe }}
+                                </div>
+                                <div class="w-16">
+                                    <label class="block text-[10px] text-ink-muted mb-0.5">RIR</label>
+                                    {{ set_row.edit_form.rir }}
+                                </div>
+                                <label class="flex items-center gap-1 text-xs text-ink-secondary pb-1.5">{{ set_row.edit_form.completed }} Completada</label>
+                                <div class="flex gap-1.5 pb-0.5">
+                                    <button type="button" @click="editing = false" class="btn-ghost text-xs px-2.5 py-1.5">Cancelar</button>
+                                    <button type="submit" class="btn-primary text-xs px-2.5 py-1.5">Guardar</button>
+                                </div>
+                            </form>
+                        </td>
                     </tr>
+                    {% endwith %}
                     {% endfor %}
                 </tbody>
             </table>
