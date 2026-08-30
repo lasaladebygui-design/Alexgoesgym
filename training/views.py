@@ -69,7 +69,7 @@ def workout_session(request, pk):
     for we in exercises:
         sets = list(we.sets.all())
         last = sets[-1] if sets else None
-        initial = {"set_type": SetEntry.SetType.WORKING}
+        initial = {"set_type": SetEntry.SetType.WORKING, "unit": request.user.unit_preference}
         if last:
             initial.update({
                 "weight": last.weight_display, "unit": last.input_unit, "set_type": last.set_type,
@@ -374,7 +374,9 @@ def bodyweight(request):
             messages.success(request, "Peso registrado.")
             return redirect("training:bodyweight")
     else:
-        form = BodyWeightEntryForm(initial={"date": timezone.localdate()})
+        last_entry = BodyWeightEntry.objects.filter(user=request.user).first()
+        unit = last_entry.input_unit if last_entry else request.user.unit_preference
+        form = BodyWeightEntryForm(initial={"date": timezone.localdate(), "unit": unit})
     entries = BodyWeightEntry.objects.filter(user=request.user)[:90]
     chart_labels = [e.date.isoformat() for e in reversed(entries)]
     chart_values = [float(e.weight_kg) for e in reversed(entries)]

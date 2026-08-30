@@ -32,6 +32,15 @@ class WorkoutFlowTests(TonnageTestCase):
     """La función principal: empezar un entrenamiento, añadir un
     ejercicio, registrar series con detalle y terminarlo."""
 
+    def test_el_formulario_de_serie_respeta_la_unidad_preferida(self):
+        self.user.unit_preference = "lb"
+        self.user.save(update_fields=["unit_preference"])
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+
+        response = self.client.get(reverse("training:workout-session", args=[workout.pk]))
+        self.assertEqual(response.context["rows"][0]["add_form"].initial["unit"], "lb")
+
     def test_flujo_completo_de_entrenamiento(self):
         # 1) Empezar libre
         response = self.client.post(reverse("training:workout-start"), {"routine_day": "", "name": "Empuje"})
