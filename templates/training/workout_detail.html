@@ -11,10 +11,18 @@
             <h1 class="font-display text-2xl font-bold">{{ workout.name }}</h1>
             <p class="text-sm text-ink-muted">{{ workout.date|date:"l, d \d\e F \d\e Y" }} · {{ workout.start_time|time:"H:i" }}{% if workout.end_time %}–{{ workout.end_time|time:"H:i" }}{% endif %}</p>
         </div>
-        <div class="grid grid-cols-3 gap-4 text-right">
-            <div><p class="tile-label">Series</p><p class="tile-value text-lg">{{ workout.total_sets }}</p></div>
-            <div><p class="tile-label">Volumen</p><p class="tile-value text-lg">{{ workout.total_volume_kg|floatformat:0|intcomma }}</p></div>
-            <div><p class="tile-label">Duración</p><p class="tile-value text-lg">{% if workout.duration_minutes is not None %}{{ workout.duration_minutes }}′{% else %}—{% endif %}</p></div>
+        <div class="flex items-center gap-6">
+            <div class="grid grid-cols-3 gap-4 text-right">
+                <div><p class="tile-label">Series</p><p class="tile-value text-lg">{{ workout.total_sets }}</p></div>
+                <div><p class="tile-label">Volumen</p><p class="tile-value text-lg">{{ workout.total_volume_kg|floatformat:0|intcomma }}</p></div>
+                <div><p class="tile-label">Duración</p><p class="tile-value text-lg">{% if workout.duration_minutes is not None %}{{ workout.duration_minutes }}′{% else %}—{% endif %}</p></div>
+            </div>
+            {% if workout.status == 'completed' %}
+            <form method="post" action="{% url 'training:workout-repeat' workout.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-primary whitespace-nowrap" title="Nueva sesión con los mismos ejercicios">🔁 Repetir</button>
+            </form>
+            {% endif %}
         </div>
     </div>
 

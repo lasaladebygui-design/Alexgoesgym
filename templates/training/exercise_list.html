@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Ejercicios · Tonnage{% endblock %}
 {% block content %}
-<h1 class="font-display text-2xl font-bold mb-6">Ejercicios</h1>
+<h1 class="font-display text-2xl font-bold mb-4">Ejercicios</h1>
 
-<form method="get" class="flex flex-wrap gap-3 mb-6">
-    <input type="search" name="q" value="{{ query }}" placeholder="Buscar ejercicio..." class="flex-1 min-w-[200px]">
-    <select name="muscle" class="w-48" onchange="this.form.submit()">
-        <option value="">Todos los grupos</option>
-        {% for mg in muscle_groups %}
-        <option value="{{ mg.slug }}" {% if mg.slug == selected_muscle %}selected{% endif %}>{{ mg.name }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" class="btn-ghost">Filtrar</button>
+<div class="flex flex-wrap gap-2 mb-4">
+    <a href="?{% if query %}q={{ query }}{% endif %}"
+       class="rounded-full px-3 py-1.5 text-xs font-medium {% if not selected_muscle %}bg-accent text-accent-ink{% else %}border border-line text-ink-secondary hover:border-accent hover:text-accent{% endif %}">
+        Todos
+    </a>
+    {% for mg in muscle_groups %}
+    <a href="?muscle={{ mg.slug }}{% if query %}&q={{ query }}{% endif %}"
+       class="rounded-full px-3 py-1.5 text-xs font-medium {% if mg.slug == selected_muscle %}bg-accent text-accent-ink{% else %}border border-line text-ink-secondary hover:border-accent hover:text-accent{% endif %}">
+        {{ mg.name }}
+    </a>
+    {% endfor %}
+</div>
+
+<form method="get" class="mb-6">
+    {% if selected_muscle %}<input type="hidden" name="muscle" value="{{ selected_muscle }}">{% endif %}
+    <input type="search" name="q" value="{{ query }}" placeholder="O escribe para buscar por nombre..." class="max-w-sm">
 </form>
 
 {% if exercises %}

@@ -31,7 +31,15 @@
         {% endif %}
 
         <div class="card-tile">
-            <p class="tile-label">Último entrenamiento</p>
+            <div class="flex items-start justify-between gap-2">
+                <p class="tile-label">Último entrenamiento</p>
+                {% if last_workout and not current_workout %}
+                <form method="post" action="{% url 'training:workout-repeat' last_workout.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs text-accent hover:text-accent-hover font-medium" title="Nueva sesión con los mismos ejercicios">🔁 Repetir</button>
+                </form>
+                {% endif %}
+            </div>
             {% if last_workout %}
             <p class="tile-value">{{ last_workout.name }}</p>
             <p class="tile-sub">{{ last_workout.date|naturalday }} · {{ last_workout.total_sets }} series · {{ last_workout.total_volume_kg|floatformat:0|intcomma }} kg</p>

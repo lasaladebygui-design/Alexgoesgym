@@ -218,6 +218,27 @@ def workout_detail(request, pk):
     return render(request, "training/workout_detail.html", {"workout": workout, "exercises": exercises})
 
 
+@login_required
+def workout_repeat(request, pk):
+    """Un clic para volver a entrenar lo mismo: crea una sesión nueva con
+    los MISMOS ejercicios (mismo orden, mismas superseries) que `pk`,
+    pero sin series -- se registran de cero, la comodidad está en no
+    tener que volver a buscar y añadir cada ejercicio uno a uno."""
+    source = get_object_or_404(Workout, pk=pk, user=request.user)
+    if request.method != "POST":
+        return redirect("training:workout-detail", pk=pk)
+
+    workout = Workout.objects.create(
+        user=request.user, routine=source.routine, routine_day=source.routine_day,
+        name=source.name, date=timezone.localdate(), start_time=timezone.now(),
+    )
+    for we in source.exercises.order_by("order"):
+        WorkoutExercise.objects.create(
+            workout=workout, exercise=we.exercise, order=we.order, superset_group=we.superset_group,
+        )
+    return redirect("training:workout-session", pk=workout.pk)
+
+
 # --- Rutinas -----------------------------------------------------------------
 
 @login_required

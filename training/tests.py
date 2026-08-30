@@ -104,6 +104,23 @@ class WorkoutFlowTests(TonnageTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Press banca")
 
+    def test_repetir_entrenamiento_clona_los_ejercicios_sin_las_series(self):
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=self.chest, equipment="barbell")
+        original = Workout.objects.create(
+            user=self.user, name="Piernas", status=Workout.Status.COMPLETED,
+            start_time=Workout.start_time.field.default(),
+        )
+        we1 = WorkoutExercise.objects.create(workout=original, exercise=squat, order=0)
+        SetEntry.objects.create(workout_exercise=we1, set_number=1, weight_kg=Decimal("100"), reps_performed=5)
+        WorkoutExercise.objects.create(workout=original, exercise=self.bench, order=1)
+
+        response = self.client.post(reverse("training:workout-repeat", args=[original.pk]))
+        new_workout = Workout.objects.exclude(pk=original.pk).get(name="Piernas")
+        self.assertRedirects(response, reverse("training:workout-session", args=[new_workout.pk]))
+        self.assertEqual(new_workout.status, Workout.Status.IN_PROGRESS)
+        self.assertEqual(list(new_workout.exercises.order_by("order").values_list("exercise__name", flat=True)), ["Sentadilla", "Press banca"])
+        self.assertEqual(SetEntry.objects.filter(workout_exercise__workout=new_workout).count(), 0)
+
     def test_repetir_ultima_serie_de_un_toque(self):
         """El botón "🔁 Repetir última" reenvía los mismos valores de la
         última serie sin pasar por el formulario -- clave para poder

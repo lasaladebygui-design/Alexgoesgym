@@ -17,6 +17,7 @@ urlpatterns = [
 
     path("entrenamientos/", views.workout_history, name="workout-history"),
     path("entrenamientos/<int:pk>/", views.workout_detail, name="workout-detail"),
+    path("entrenamientos/<int:pk>/repetir/", views.workout_repeat, name="workout-repeat"),
 
     path("rutinas/", views.routine_list, name="routine-list"),
     path("rutinas/nueva/", views.routine_create, name="routine-create"),
