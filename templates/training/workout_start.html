@@ -3,17 +3,43 @@
 {% block content %}
 <div class="max-w-md mx-auto">
     <h1 class="font-display text-2xl font-bold mb-1">Empezar entrenamiento</h1>
-    <p class="text-sm text-ink-muted mb-6">Elige un día de tu rutina o entrena libre.</p>
-    <form method="post" class="card-panel space-y-4">
-        {% csrf_token %}
-        {% for field in form %}
-        <div>
-            <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
-            {{ field }}
-            {% if field.help_text %}<p class="text-xs text-ink-muted mt-1">{{ field.help_text }}</p>{% endif %}
-        </div>
+    <p class="text-sm text-ink-muted mb-6">Un toque y arranca -- el cronómetro empieza al momento.</p>
+
+    <div class="space-y-2.5 mb-6">
+        {% for day in routine_days %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="routine_day" value="{{ day.pk }}">
+            <input type="hidden" name="name" value="">
+            <button type="submit" class="card-tile w-full text-left flex items-center justify-between hover:border-accent/40">
+                <div>
+                    <p class="tile-value text-base">{{ day.name }}</p>
+                    <p class="tile-sub">{{ day.routine.name }} · {{ day.exercises.count }} ejercicio{{ day.exercises.count|pluralize }}</p>
+                </div>
+                <span class="text-accent text-lg">→</span>
+            </button>
+        </form>
         {% endfor %}
-        <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">🔥 Empezar</button>
-    </form>
+    </div>
+
+    <div x-data="{ customOpen: false }">
+        <form method="post" x-show="!customOpen">
+            {% csrf_token %}
+            <input type="hidden" name="routine_day" value="">
+            <input type="hidden" name="name" value="">
+            <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">🔥 Entrenamiento libre</button>
+        </form>
+        <button type="button" @click="customOpen = true" x-show="!customOpen" class="text-xs text-ink-muted hover:text-ink-secondary mt-2 mx-auto block">Ponerle nombre primero →</button>
+
+        <form method="post" x-show="customOpen" x-cloak class="card-panel space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="routine_day" value="">
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Nombre</label>
+                <input type="text" name="name" placeholder="Ej. Pierna en casa">
+            </div>
+            <button type="submit" class="w-full rounded-xl bg-accent hover:bg-accent-hover text-accent-ink font-semibold text-sm px-4 py-3 transition-colors">🔥 Empezar</button>
+        </form>
+    </div>
 </div>
 {% endblock %}

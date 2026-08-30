@@ -54,7 +54,8 @@ def workout_start(request):
             return redirect("training:workout-session", pk=workout.pk)
     else:
         form = WorkoutStartForm(user=request.user)
-    return render(request, "training/workout_start.html", {"form": form})
+    routine_days = RoutineDay.objects.filter(routine__user=request.user, routine__is_active=True).select_related("routine")
+    return render(request, "training/workout_start.html", {"form": form, "routine_days": routine_days})
 
 
 @login_required
