@@ -104,6 +104,37 @@ class WorkoutFlowTests(TonnageTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Press banca")
 
+    def test_repetir_ultima_serie_de_un_toque(self):
+        """El botón "🔁 Repetir última" reenvía los mismos valores de la
+        última serie sin pasar por el formulario -- clave para poder
+        apuntar entre repeticiones sin escribir nada."""
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(
+            workout_exercise=we, set_number=1, set_type=SetEntry.SetType.WORKING,
+            weight_kg=Decimal("80"), input_unit="kg", reps_performed=10, reps_target=10,
+            rpe=Decimal("8"), rir=2, completed=True,
+        )
+        response = self.client.get(reverse("training:workout-session", args=[workout.pk]))
+        self.assertContains(response, "Repetir última")
+
+        self.client.post(reverse("training:set-add", args=[workout.pk, we.pk]), {
+            "set_type": SetEntry.SetType.WORKING, "weight": "80", "unit": "kg",
+            "reps_performed": "10", "reps_target": "10", "rpe": "8", "rir": "2", "completed": "on",
+        })
+        self.assertEqual(we.sets.count(), 2)
+        second = we.sets.get(set_number=2)
+        self.assertEqual(second.weight_kg, Decimal("80"))
+        self.assertEqual(second.reps_performed, 10)
+
+    def test_chips_de_ejercicios_recientes_en_la_sesion(self):
+        """El ejercicio ya usado aparece como chip de un toque, sin
+        necesidad de escribir para volver a elegirlo."""
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        response = self.client.get(reverse("training:workout-session", args=[workout.pk]))
+        self.assertContains(response, "Press banca")  # como chip reciente y como fila ya añadida
+
     def test_editar_una_serie_ya_registrada(self):
         workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
         we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
@@ -228,3 +259,18 @@ class DashboardTests(TonnageTestCase):
         response = self.client.get(reverse("dashboard:home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Pecho")
+
+    def test_dashboard_muestra_grafica_de_volumen_semanal(self):
+        workout = Workout.objects.create(
+            user=self.user, name="Pecho", status=Workout.Status.COMPLETED,
+            start_time=Workout.start_time.field.default(),
+        )
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+
+        response = self.client.get(reverse("dashboard:home"))
+        self.assertContains(response, "volume-chart")
+        self.assertContains(response, "Volumen semanal")
+        # 12 semanas, la última con 800 kg (80kg x 10 reps) de volumen.
+        self.assertEqual(len(response.context["volume_chart_values"]), 12)
+        self.assertEqual(response.context["volume_chart_values"][-1], 800.0)

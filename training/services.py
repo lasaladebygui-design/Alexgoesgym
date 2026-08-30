@@ -40,6 +40,29 @@ def exercises_picker_data(user):
     ]
 
 
+def recent_exercises(user, limit=8):
+    """Los últimos ejercicios distintos que se han usado -- para
+    ofrecerlos como chips de un toque encima del buscador (ver
+    _exercise_picker.html): lo más cómodo es no tener ni que escribir
+    para el ejercicio de siempre."""
+    from .models import Exercise, WorkoutExercise
+
+    seen = []
+    seen_ids = set()
+    qs = (
+        WorkoutExercise.objects.filter(workout__user=user)
+        .select_related("exercise")
+        .order_by("-workout__start_time")[:60]
+    )
+    for we in qs:
+        if we.exercise_id not in seen_ids:
+            seen_ids.add(we.exercise_id)
+            seen.append(we.exercise)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
 def last_workout(user):
     return Workout.objects.filter(user=user, status=Workout.Status.COMPLETED).order_by("-start_time").first()
 
@@ -95,6 +118,61 @@ def sets_since(user, since_date):
         workout_exercise__workout__user=user,
         workout_exercise__workout__date__gte=since_date,
     ).count()
+
+
+def weekly_volume_series(user, weeks=12):
+    """Volumen total por semana (lunes a domingo) de las últimas `weeks`
+    semanas, incluida la actual -- para el gráfico de tendencia del
+    dashboard. Se agrupa en Python en vez de con TruncWeek porque son
+    pocos registros y así se evita depender de que la semana ISO de la
+    base de datos coincida con "lunes primero" en todos los motores."""
+    from django.db.models import F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    rows = SetEntry.objects.filter(
+        workout_exercise__workout__user=user,
+        workout_exercise__workout__date__gte=first_monday,
+        completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+    ).values("workout_exercise__workout__date").annotate(
+        volume=Sum(F("weight_kg") * F("reps_performed")),
+    )
+    by_date = {r["workout_exercise__workout__date"]: r["volume"] for r in rows}
+
+    buckets = [Decimal("0")] * weeks
+    for date, volume in by_date.items():
+        week_index = (date - first_monday).days // 7
+        if 0 <= week_index < weeks:
+            buckets[week_index] += volume
+
+    labels = [(first_monday + timedelta(weeks=i)).strftime("%d/%m") for i in range(weeks)]
+    return labels, buckets
+
+
+def session_volume_series(user, exercise, sessions=15):
+    """Volumen total por sesión (entrenamiento) de un ejercicio, las
+    últimas `sessions` veces que ha aparecido -- para comparar con la
+    gráfica de 1RM estimado en la ficha del ejercicio: a veces se sube
+    de peso pero se baja de volumen (menos series/reps), y solo el 1RM
+    no lo enseña."""
+    from django.db.models import F
+
+    rows = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__user=user, workout_exercise__exercise=exercise,
+            completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+        )
+        .values("workout_exercise__workout__date")
+        .annotate(volume=Sum(F("weight_kg") * F("reps_performed")))
+        .order_by("-workout_exercise__workout__date")[:sessions]
+    )
+    rows = list(reversed(rows))
+    return (
+        [r["workout_exercise__workout__date"] for r in rows],
+        [r["volume"] for r in rows],
+    )
 
 
 def workouts_since(user, since_date):

@@ -4,8 +4,12 @@ Buscador de ejercicio reutilizable. Contexto esperado:
     training.services.exercises_picker_data).
   - field_name: nombre del <input type="hidden"> que se envía en el POST
     (debe coincidir con el campo del form de Django que lo recibe).
-  - picker_id: prefijo único para los ids del DOM (por si hay más de un
-    picker en la misma página).
+  - recent_picks: opcional -- lista de {id, name} para enseñar como chips
+    de un toque encima del buscador (ver training.services.recent_exercises).
+    Con esto elegir el ejercicio de siempre no hace falta ni escribirlo.
+  - autosubmit: opcional (bool) -- si se toca un chip, envía el <form>
+    que lo contiene al momento (para el caso de "añadir ejercicio a la
+    sesión", donde un chip debería bastar de principio a fin).
   - selected_id / selected_label: opcional, para dejarlo preseleccionado.
   - placeholder: opcional.
   - required: opcional (bool) -- si se deja sin elegir nada y es
@@ -15,12 +19,25 @@ Buscador de ejercicio reutilizable. Contexto esperado:
 <div x-data="exercisePicker({{ exercises_json }}, '{{ selected_id|default:"" }}', '{{ selected_label|default:""|escapejs }}')"
      class="relative" @click.outside="open = false">
     <input type="hidden" name="{{ field_name }}" :value="selectedId" {% if required %}required{% endif %}>
+
+    {% if recent_picks %}
+    <div class="flex flex-wrap gap-1.5 mb-2">
+        {% for ex in recent_picks %}
+        <button type="button"
+                @click="select({id: {{ ex.id }}, name: '{{ ex.name|escapejs }}'}); {% if autosubmit %}$el.closest('form').requestSubmit();{% endif %}"
+                class="rounded-full border border-line px-3 py-1 text-xs text-ink-secondary hover:border-accent hover:text-accent transition-colors">
+            {{ ex.name }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <input type="text" x-model="query" @focus="open = true" @input="onInput()"
            @keydown.down.prevent="highlighted = Math.min(highlighted + 1, filtered.length - 1)"
            @keydown.up.prevent="highlighted = Math.max(highlighted - 1, 0)"
            @keydown.enter.prevent="onEnter()"
            @keydown.escape="open = false"
-           placeholder="{{ placeholder|default:'Buscar ejercicio...' }}" autocomplete="off">
+           placeholder="{{ placeholder|default:'O escribe para buscar entre los 100+...' }}" autocomplete="off">
     <div x-show="open && filtered.length" x-cloak
          class="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-line bg-surface-raised shadow-xl">
         <template x-for="(ex, idx) in filtered" :key="ex.id">

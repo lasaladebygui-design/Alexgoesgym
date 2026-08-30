@@ -44,4 +44,9 @@ def home(request):
     context["bodyweight_chart_labels"] = bw_labels
     context["bodyweight_chart_values"] = bw_values
 
+    volume_labels, volume_values = services.weekly_volume_series(user, weeks=12)
+    context["volume_chart_labels"] = volume_labels
+    context["volume_chart_values"] = [float(v) for v in volume_values]
+    context["has_volume_data"] = any(v > 0 for v in volume_values)
+
     return render(request, "dashboard/home.html", context)

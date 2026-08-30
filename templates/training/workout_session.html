@@ -154,7 +154,23 @@
         <p class="text-sm text-ink-muted mb-3">Todavía no hay series. Añade la primera abajo.</p>
         {% endif %}
 
-        <button type="button" @click="addOpen = !addOpen" class="text-xs font-medium text-accent hover:text-accent-hover mt-3" x-show="!addOpen">+ Añadir serie</button>
+        <div class="flex items-center gap-3 mt-3" x-show="!addOpen">
+            <button type="button" @click="addOpen = !addOpen" class="text-xs font-medium text-accent hover:text-accent-hover">+ Añadir serie</button>
+            {% if row.repeat %}
+            <form method="post" action="{% url 'training:set-add' workout.pk row.we.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="set_type" value="{{ row.repeat.set_type }}">
+                <input type="hidden" name="weight" value="{{ row.repeat.weight }}">
+                <input type="hidden" name="unit" value="{{ row.repeat.unit }}">
+                <input type="hidden" name="reps_performed" value="{{ row.repeat.reps_performed }}">
+                <input type="hidden" name="reps_target" value="{{ row.repeat.reps_target }}">
+                <input type="hidden" name="rpe" value="{{ row.repeat.rpe }}">
+                <input type="hidden" name="rir" value="{{ row.repeat.rir }}">
+                <input type="hidden" name="completed" value="on">
+                <button type="submit" class="text-xs font-medium text-ink-muted hover:text-ink-secondary" title="Añade una serie igual a la última, sin abrir el formulario">🔁 Repetir última</button>
+            </form>
+            {% endif %}
+        </div>
 
         <form method="post" action="{% url 'training:set-add' workout.pk row.we.pk %}" x-show="addOpen" x-cloak class="mt-3 pt-3 border-t border-line space-y-3">
             {% csrf_token %}
@@ -232,7 +248,7 @@
             {% csrf_token %}
             <div class="flex-1 min-w-[200px]">
                 <label class="block text-[11px] text-ink-muted mb-1">Ejercicio</label>
-                {% include "training/_exercise_picker.html" with field_name="exercise" required=True %}
+                {% include "training/_exercise_picker.html" with field_name="exercise" required=True recent_picks=recent_picks autosubmit=True %}
             </div>
             <div class="w-32">
                 <label class="block text-[11px] text-ink-muted mb-1">Superserie (opcional)</label>

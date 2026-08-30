@@ -30,7 +30,7 @@ from .models import (
     Workout,
     WorkoutExercise,
 )
-from .services import exercises_picker_data, strength_progression
+from .services import exercises_picker_data, recent_exercises, strength_progression
 
 
 # --- Registro de entrenamiento (la función principal) -----------------------
@@ -81,8 +81,23 @@ def workout_session(request, pk):
             }
             for s in sets
         ]
+        repeat = None
+        if last:
+            # Valores planos (str, formato "de máquina") para el botón
+            # "Repetir última" -- se rellenan en Python, no en la plantilla,
+            # para no depender de cómo el locale (es-ES, coma decimal)
+            # formatearía un Decimal si se imprimiera directamente.
+            repeat = {
+                "set_type": last.set_type,
+                "weight": str(last.weight_display) if last.weight_display is not None else "",
+                "unit": last.input_unit,
+                "reps_performed": last.reps_performed if last.reps_performed is not None else "",
+                "reps_target": last.reps_target if last.reps_target is not None else "",
+                "rpe": str(last.rpe) if last.rpe is not None else "",
+                "rir": last.rir if last.rir is not None else "",
+            }
         rows.append({
-            "we": we, "set_rows": set_rows,
+            "we": we, "set_rows": set_rows, "repeat": repeat,
             "add_form": SetEntryForm(initial=initial),
             "volume": we.total_volume_kg,
         })
@@ -93,6 +108,7 @@ def workout_session(request, pk):
         "workout": workout, "rows": rows,
         "add_exercise_form": add_exercise_form, "finish_form": finish_form,
         "exercises_json": json.dumps(exercises_picker_data(request.user)),
+        "recent_picks": recent_exercises(request.user),
     })
 
 
