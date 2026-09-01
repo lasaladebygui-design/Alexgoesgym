@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -355,9 +356,12 @@ def exercise_detail(request, slug):
     ).select_related("workout_exercise__workout").order_by("-workout_exercise__workout__date")[:20]
     chart_labels = [d.isoformat() for d, _ in progression]
     chart_values = [float(v) for _, v in progression]
+    from .services import rep_max_table
+
     return render(request, "training/exercise_detail.html", {
         "exercise": exercise, "prs": prs, "recent_sets": recent_sets,
         "chart_labels": chart_labels, "chart_values": chart_values,
+        "rep_max_table": rep_max_table(request.user, exercise),
     })
 
 
@@ -400,6 +404,46 @@ def bodyweight_delete(request, pk):
 def pr_list(request):
     records = PersonalRecord.objects.filter(user=request.user).select_related("exercise").order_by("exercise__name", "kind")
     return render(request, "training/pr_list.html", {"records": records})
+
+
+@login_required
+def analytics(request):
+    from . import services
+
+    user = request.user
+    week = services.week_comparison(user)
+
+    muscle_labels, muscle_series = services.muscle_volume_by_week(user, weeks=8)
+    muscle_chart_series = [
+        {"label": name, "values": [float(v) for v in values]}
+        for name, values in muscle_series
+    ]
+
+    balance = services.muscle_balance(user, days=30)
+    balance_total = sum((v for _, v in balance), Decimal("0"))
+    balance_rows = [
+        {"muscle": name, "volume": volume, "pct": round(float(volume) / float(balance_total) * 100) if balance_total else 0}
+        for name, volume in balance
+    ]
+
+    rpe_labels, rpe_values = services.rpe_trend(user, weeks=8)
+
+    context = {
+        "week": week,
+        "muscle_chart_labels": muscle_labels,
+        "muscle_chart_series": muscle_chart_series,
+        "has_muscle_data": any(s["values"] for s in muscle_chart_series) and any(any(v > 0 for v in s["values"]) for s in muscle_chart_series),
+        "balance_rows": balance_rows,
+        "has_balance_data": bool(balance_rows),
+        "rpe_labels": rpe_labels,
+        # json.dumps, no la lista de Python tal cual -- rpe_values puede
+        # traer None (semana sin RPE registrado) y el `None` de Python
+        # se cuela literal en el <script> (no es `null` de JS), rompiendo
+        # todo el bloque con un ReferenceError silencioso.
+        "rpe_values_json": json.dumps(rpe_values),
+        "has_rpe_data": any(v is not None for v in rpe_values),
+    }
+    return render(request, "training/analytics.html", context)
 
 
 @login_required

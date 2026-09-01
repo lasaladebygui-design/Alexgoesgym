@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Analíticas · Tonnage{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">📈 Analíticas</h1>
+        <p class="text-sm text-ink-muted mt-1">Cómo va tu entrenamiento en conjunto, no ejercicio a ejercicio.</p>
+    </div>
+
+    <!-- Esta semana vs la pasada -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card-tile">
+            <p class="tile-label">Volumen</p>
+            <p class="tile-value">{{ week.this.volume|floatformat:0|intcomma }} kg</p>
+            {% if week.volume_delta is not None %}
+            <p class="tile-sub {% if week.volume_delta >= 0 %}text-good{% else %}text-warn{% endif %}">
+                {% if week.volume_delta >= 0 %}▲{% else %}▼{% endif %} {{ week.volume_delta }}% vs. semana pasada
+            </p>
+            {% else %}
+            <p class="tile-sub">Sin semana pasada con la que comparar.</p>
+            {% endif %}
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Series</p>
+            <p class="tile-value">{{ week.this.sets }}</p>
+            {% if week.sets_delta is not None %}
+            <p class="tile-sub {% if week.sets_delta >= 0 %}text-good{% else %}text-warn{% endif %}">
+                {% if week.sets_delta >= 0 %}▲{% else %}▼{% endif %} {{ week.sets_delta }}% vs. semana pasada
+            </p>
+            {% else %}
+            <p class="tile-sub">Sin semana pasada con la que comparar.</p>
+            {% endif %}
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Entrenamientos</p>
+            <p class="tile-value">{{ week.this.workouts }}</p>
+            {% if week.workouts_delta is not None %}
+            <p class="tile-sub {% if week.workouts_delta >= 0 %}text-good{% else %}text-warn{% endif %}">
+                {% if week.workouts_delta >= 0 %}▲{% else %}▼{% endif %} {{ week.workouts_delta }}% vs. semana pasada
+            </p>
+            {% else %}
+            <p class="tile-sub">Sin semana pasada con la que comparar.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Volumen por músculo, 8 semanas -->
+        <div class="card-panel lg:col-span-2">
+            <h2 class="font-display text-lg font-semibold mb-1">Volumen por grupo muscular</h2>
+            <p class="text-xs text-ink-muted mb-4">Últimas 8 semanas — quién lleva tiempo sin tocarse se ve en el hueco.</p>
+            {% if has_muscle_data %}
+            <div class="h-72"><canvas id="muscle-chart"></canvas></div>
+            {% else %}
+            <p class="text-sm text-ink-muted">Todavía no hay series registradas para pintar esto.</p>
+            {% endif %}
+        </div>
+
+        <!-- Reparto (30 días) -->
+        <div class="card-panel">
+            <h2 class="font-display text-lg font-semibold mb-1">Reparto (30 días)</h2>
+            <p class="text-xs text-ink-muted mb-4">Qué parte del volumen se ha ido a cada grupo.</p>
+            {% if has_balance_data %}
+            <div class="h-48 mb-4"><canvas id="balance-chart"></canvas></div>
+            <ul class="space-y-1.5">
+                {% for row in balance_rows %}
+                <li class="flex items-center justify-between text-sm">
+                    <span class="text-ink-secondary">{{ row.muscle }}</span>
+                    <span class="font-mono text-ink-primary">{{ row.pct }}%</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-ink-muted">Sin datos de los últimos 30 días.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Intensidad (RPE) -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Intensidad percibida (RPE medio)</h2>
+        <p class="text-xs text-ink-muted mb-4">Últimas 8 semanas — si sube con el mismo peso de siempre, puede ser fatiga acumulada.</p>
+        {% if has_rpe_data %}
+        <div class="h-56"><canvas id="rpe-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Registra el RPE en tus series para ver esta gráfica.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_body %}
+{% if has_muscle_data %}
+<script>
+const musclePalette = ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a', '#7c8cd6', '#9fb545'];
+new Chart(document.getElementById('muscle-chart'), {
+    type: 'bar',
+    data: {
+        labels: {{ muscle_chart_labels|safe }},
+        datasets: [
+            {% for s in muscle_chart_series %}
+            {
+                label: "{{ s.label|default:'Sin grupo' }}",
+                data: {{ s.values|safe }},
+                backgroundColor: musclePalette[{{ forloop.counter0 }} % musclePalette.length],
+            },
+            {% endfor %}
+        ],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#c8c6c0', boxWidth: 12, padding: 12 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('es-ES')} kg` } },
+        },
+        scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { color: '#898781' } },
+            y: { stacked: true, grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+    },
+});
+</script>
+{% endif %}
+{% if has_balance_data %}
+<script>
+new Chart(document.getElementById('balance-chart'), {
+    type: 'doughnut',
+    data: {
+        labels: [{% for row in balance_rows %}"{{ row.muscle|default:'Sin grupo' }}",{% endfor %}],
+        datasets: [{
+            data: [{% for row in balance_rows %}{{ row.pct }},{% endfor %}],
+            backgroundColor: ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a', '#7c8cd6', '#9fb545'],
+            borderColor: '#161512', borderWidth: 2,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed}%` } } },
+    },
+});
+</script>
+{% endif %}
+{% if has_rpe_data %}
+<script>
+new Chart(document.getElementById('rpe-chart'), {
+    type: 'line',
+    data: {
+        labels: {{ rpe_labels|safe }},
+        datasets: [{
+            data: {{ rpe_values_json|safe }},
+            borderColor: '#e05f8f', backgroundColor: 'rgba(224,95,143,0.12)',
+            fill: true, tension: 0.3, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#898781' } },
+            y: { min: 1, max: 10, grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+    },
+});
+</script>
+{% endif %}
+{% endblock %}

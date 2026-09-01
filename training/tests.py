@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -322,3 +323,129 @@ class DashboardTests(TonnageTestCase):
         # 12 semanas, la última con 800 kg (80kg x 10 reps) de volumen.
         self.assertEqual(len(response.context["volume_chart_values"]), 12)
         self.assertEqual(response.context["volume_chart_values"][-1], 800.0)
+
+
+class AnalyticsTests(TonnageTestCase):
+    """training:analytics -- comparación semanal, volumen por músculo,
+    reparto y tendencia de RPE (ver training/services.py)."""
+
+    def _completed_workout(self, days_ago=0):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        return Workout.objects.create(
+            user=self.user, name="Test", date=tz.localdate() - timedelta(days=days_ago),
+            start_time=Workout.start_time.field.default(), status=Workout.Status.COMPLETED,
+        )
+
+    def test_pagina_carga_sin_datos(self):
+        response = self.client.get(reverse("training:analytics"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Todavía no hay series registradas")
+
+    def test_comparacion_semanal_detecta_subida_de_volumen(self):
+        this_week = self._completed_workout(days_ago=0)
+        we1 = WorkoutExercise.objects.create(workout=this_week, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we1, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        last_week = self._completed_workout(days_ago=8)
+        we2 = WorkoutExercise.objects.create(workout=last_week, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"))
+        week = response.context["week"]
+        self.assertEqual(week["this"]["volume"], Decimal("1000"))
+        self.assertEqual(week["last"]["volume"], Decimal("500"))
+        self.assertEqual(week["volume_delta"], 100)
+
+    def test_sin_semana_pasada_el_delta_es_none_no_infinito(self):
+        workout = self._completed_workout(days_ago=0)
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"))
+        self.assertIsNone(response.context["week"]["volume_delta"])
+
+    def test_volumen_por_musculo_agrupa_por_grupo(self):
+        legs = MuscleGroup.objects.create(name="Piernas", region="lower")
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=legs, equipment="barbell")
+
+        workout = self._completed_workout()
+        we_chest = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we_chest, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+        we_legs = WorkoutExercise.objects.create(workout=workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we_legs, set_number=1, weight_kg=Decimal("120"), reps_performed=5)
+
+        response = self.client.get(reverse("training:analytics"))
+        labels = [s["label"] for s in response.context["muscle_chart_series"]]
+        self.assertIn("Pecho", labels)
+        self.assertIn("Piernas", labels)
+
+    def test_reparto_sobre_30_dias_suma_100_por_ciento(self):
+        from .services import muscle_balance
+
+        legs = MuscleGroup.objects.create(name="Piernas", region="lower")
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=legs, equipment="barbell")
+        workout = self._completed_workout()
+        we_chest = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we_chest, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+        we_legs = WorkoutExercise.objects.create(workout=workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we_legs, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"))
+        total_pct = sum(row["pct"] for row in response.context["balance_rows"])
+        self.assertEqual(total_pct, 100)
+        self.assertEqual(len(muscle_balance(self.user)), 2)
+
+    def test_rpe_solo_cuenta_series_con_rpe(self):
+        workout = self._completed_workout()
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=8, rpe=Decimal("8.5"))
+        SetEntry.objects.create(workout_exercise=we, set_number=2, weight_kg=Decimal("80"), reps_performed=8)
+
+        response = self.client.get(reverse("training:analytics"))
+        self.assertTrue(response.context["has_rpe_data"])
+        rpe_values = json.loads(response.context["rpe_values_json"])
+        self.assertIn(8.5, rpe_values)
+
+    def test_semanas_sin_rpe_se_serializan_como_null_no_como_none_de_python(self):
+        # Bug real: pasar la lista de Python tal cual con |safe metía la
+        # palabra "None" literal en el <script> (no es "null" de JS) y
+        # rompía el bloque entero con un ReferenceError silencioso.
+        workout = self._completed_workout(days_ago=0)
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=8, rpe=Decimal("8.0"))
+
+        older_workout = self._completed_workout(days_ago=21)
+        we2 = WorkoutExercise.objects.create(workout=older_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("80"), reps_performed=8, rpe=Decimal("7.0"))
+
+        response = self.client.get(reverse("training:analytics"))
+        self.assertIn("null", response.context["rpe_values_json"])
+        self.assertNotIn("None", response.content.decode())
+
+    def test_pagina_requiere_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("training:analytics"))
+        self.assertNotEqual(response.status_code, 200)
+
+
+class RepMaxTableTests(TonnageTestCase):
+    """training/services.py::rep_max_table -- a partir del 1RM estimado
+    (PersonalRecord), fórmula de Epley invertida por número de reps."""
+
+    def test_sin_pr_todavia_no_hay_tabla(self):
+        response = self.client.get(reverse("training:exercise-detail", args=[self.bench.slug]))
+        self.assertNotContains(response, "Tabla de repeticiones")
+
+    def test_con_pr_la_tabla_sale_y_1rm_coincide(self):
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=1)
+
+        response = self.client.get(reverse("training:exercise-detail", args=[self.bench.slug]))
+        self.assertContains(response, "Tabla de repeticiones")
+        table = dict(response.context["rep_max_table"])
+        self.assertEqual(table[1], Decimal("100.0"))
+        self.assertLess(table[10], table[1])

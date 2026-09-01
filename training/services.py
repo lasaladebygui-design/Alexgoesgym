@@ -287,3 +287,149 @@ def goal_progress(user, goal):
 def _progress_dict(current, target, unit):
     pct = 100 if not target else min(100, round(float(current) / float(target) * 100))
     return {"current": current, "target": target, "unit": unit, "pct": pct}
+
+
+# --- Analíticas (training:analytics) ------------------------------------
+
+def muscle_volume_by_week(user, weeks=8):
+    """Volumen semanal por grupo muscular (lunes a domingo) -- a
+    diferencia de `muscle_groups_recent` (una foto de los últimos 7
+    días), esto es la evolución semana a semana: para ver si un grupo
+    lleva tiempo sin tocarse, no solo si se tocó la semana pasada."""
+    from django.db.models import F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    rows = SetEntry.objects.filter(
+        workout_exercise__workout__user=user,
+        workout_exercise__workout__date__gte=first_monday,
+        completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+    ).values(
+        "workout_exercise__workout__date",
+        "workout_exercise__exercise__primary_muscle__name",
+    ).annotate(volume=Sum(F("weight_kg") * F("reps_performed")))
+
+    buckets = {}
+    for r in rows:
+        muscle = r["workout_exercise__exercise__primary_muscle__name"]
+        week_index = (r["workout_exercise__workout__date"] - first_monday).days // 7
+        if not (0 <= week_index < weeks):
+            continue
+        buckets.setdefault(muscle, [Decimal("0")] * weeks)
+        buckets[muscle][week_index] += r["volume"]
+
+    labels = [(first_monday + timedelta(weeks=i)).strftime("%d/%m") for i in range(weeks)]
+    # Orden por volumen total (de más a menos), para que la leyenda y las
+    # capas del gráfico apilado salgan de lo más entrenado a lo menos.
+    series = sorted(buckets.items(), key=lambda item: sum(item[1]), reverse=True)
+    return labels, series
+
+
+def muscle_balance(user, days=30):
+    """Qué parte del volumen de los últimos `days` días se ha ido a cada
+    grupo muscular -- para ver de un vistazo si el reparto está
+    equilibrado o si algo se está quedando muy atrás."""
+    from django.db.models import F
+
+    since = timezone.localdate() - timedelta(days=days)
+    rows = SetEntry.objects.filter(
+        workout_exercise__workout__user=user,
+        workout_exercise__workout__date__gte=since,
+        completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+    ).values("workout_exercise__exercise__primary_muscle__name").annotate(
+        volume=Sum(F("weight_kg") * F("reps_performed"))
+    ).order_by("-volume")
+    return [(r["workout_exercise__exercise__primary_muscle__name"], r["volume"]) for r in rows]
+
+
+def rpe_trend(user, weeks=8):
+    """RPE medio por semana -- si la intensidad percibida sube con el
+    tiempo para el mismo tipo de trabajo, suele ser fatiga acumulada
+    asomando antes de que se note en el peso que se mueve."""
+    from django.db.models import Avg
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    rows = SetEntry.objects.filter(
+        workout_exercise__workout__user=user,
+        workout_exercise__workout__date__gte=first_monday,
+        completed=True, rpe__isnull=False,
+    ).values("workout_exercise__workout__date").annotate(avg_rpe=Avg("rpe"))
+
+    week_values = {i: [] for i in range(weeks)}
+    for r in rows:
+        week_index = (r["workout_exercise__workout__date"] - first_monday).days // 7
+        if 0 <= week_index < weeks:
+            week_values[week_index].append(float(r["avg_rpe"]))
+
+    labels = [(first_monday + timedelta(weeks=i)).strftime("%d/%m") for i in range(weeks)]
+    values = [round(sum(v) / len(v), 1) if v else None for v in week_values.values()]
+    return labels, values
+
+
+def week_comparison(user):
+    """Esta semana (hasta hoy) contra la semana pasada completa --
+    volumen, series y entrenamientos, con el cambio en %. `None` cuando
+    la semana pasada no tiene con qué comparar (cuenta recién
+    estrenada), en vez de un porcentaje sin sentido tipo "+in­finito"."""
+    from django.db.models import F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    last_monday = this_monday - timedelta(weeks=1)
+
+    def stats(start, end):
+        qs = SetEntry.objects.filter(
+            workout_exercise__workout__user=user,
+            workout_exercise__workout__date__gte=start,
+            workout_exercise__workout__date__lt=end,
+            completed=True,
+        )
+        volume = qs.filter(weight_kg__isnull=False, reps_performed__isnull=False).aggregate(
+            v=Sum(F("weight_kg") * F("reps_performed"))
+        )["v"] or Decimal("0")
+        workouts = Workout.objects.filter(
+            user=user, status=Workout.Status.COMPLETED, date__gte=start, date__lt=end,
+        ).count()
+        return {"volume": volume, "sets": qs.count(), "workouts": workouts}
+
+    this_week = stats(this_monday, this_monday + timedelta(days=7))
+    last_week = stats(last_monday, this_monday)
+
+    def delta_pct(current, previous):
+        if not previous:
+            return None
+        return round((float(current) - float(previous)) / float(previous) * 100)
+
+    return {
+        "this": this_week, "last": last_week,
+        "volume_delta": delta_pct(this_week["volume"], last_week["volume"]),
+        "sets_delta": delta_pct(this_week["sets"], last_week["sets"]),
+        "workouts_delta": delta_pct(this_week["workouts"], last_week["workouts"]),
+    }
+
+
+def rep_max_table(user, exercise):
+    """A partir del mejor 1RM estimado del ejercicio, cuánto peso
+    tocaría para distintos números de repeticiones (fórmula de Epley
+    invertida) -- referencia rápida para planificar una serie a un
+    número de repeticiones distinto al que dio ese PR. None si el
+    ejercicio todavía no tiene ningún 1RM estimado."""
+    best_1rm = (
+        PersonalRecord.objects.filter(user=user, exercise=exercise, kind=PersonalRecord.Kind.EST_1RM)
+        .values_list("value_kg", flat=True).first()
+    )
+    if not best_1rm:
+        return None
+    # reps=1 es un caso especial también en la fórmula "de ida"
+    # (utils.estimated_1rm): a 1 repetición el peso ES el 1RM, sin pasar
+    # por la división -- aplicarla ahí daría 100/(31/30) ≈ 96.8 en vez
+    # de 100, inconsistente con cómo se calculó el propio PR.
+    return [
+        (reps, best_1rm if reps == 1 else round(best_1rm / (Decimal("1") + Decimal(reps) / Decimal("30")), 1))
+        for reps in (1, 3, 5, 8, 10, 12)
+    ]

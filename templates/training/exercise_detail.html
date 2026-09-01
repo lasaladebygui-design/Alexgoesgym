@@ -32,6 +32,21 @@
         {% endif %}
     </div>
 
+    {% if rep_max_table %}
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Tabla de repeticiones</h2>
+        <p class="text-xs text-ink-muted mb-4">A partir de tu mejor 1RM estimado — cuánto peso tocaría para cada número de repeticiones (fórmula de Epley).</p>
+        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            {% for reps, weight in rep_max_table %}
+            <div class="card-tile text-center">
+                <p class="tile-label">{{ reps }}RM</p>
+                <p class="tile-value font-mono">{{ weight|floatformat:1 }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card-panel">
         <h2 class="font-display text-lg font-semibold mb-4">Series recientes</h2>
         {% if recent_sets %}
