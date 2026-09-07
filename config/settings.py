@@ -56,9 +56,14 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Base de datos: Postgres en cuanto haya un DATABASE_URL (igual que
 # Lasaladebygui, apuntando por ejemplo a Supabase); SQLite local mientras
 # tanto para poder arrancar sin depender de nada externo.
+# dj_database_url.config() por sí solo lee DATABASE_URL de os.environ --
+# eso funciona en Render (pone la variable de entorno de verdad), pero no
+# en local: decouple carga el .env sin exportarlo a os.environ, así que
+# tenía que pasar por decouple explícitamente (que sí revisa os.environ
+# primero) y luego parsear la URL a mano con dj_database_url.parse().
 DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+    "default": dj_database_url.parse(
+        config("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         conn_max_age=600,
     )
 }

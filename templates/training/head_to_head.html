@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Cara a cara · Tonnage{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">⚔️ Cara a cara</h1>
+        <p class="text-sm text-ink-muted mt-1">Tú contra quien elijas, ejercicio a ejercicio — sin premio, solo para ver quién va mejor en cada uno.</p>
+    </div>
+
+    <form method="get" class="flex items-center gap-3 flex-wrap">
+        <label for="id_vs" class="text-sm text-ink-secondary">Comparar con</label>
+        <select name="vs" id="id_vs" onchange="this.form.submit()" class="rounded-lg border border-line bg-surface px-3 py-2 text-sm">
+            <option value="">Elige a alguien...</option>
+            {% for candidate in opponents %}
+            <option value="{{ candidate.username }}" {% if opponent and candidate.pk == opponent.pk %}selected{% endif %}>{{ candidate.username }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if opponent %}
+        {% if rows %}
+        <div class="flex gap-3 text-sm text-ink-secondary">
+            <span>Vas por delante en <strong class="text-accent">{{ ahead_count }}</strong> de {{ rows|length }} ejercicios.</span>
+            <span>·</span>
+            <span>{{ opponent.username }} va por delante en <strong class="text-ink-primary">{{ behind_count }}</strong>.</span>
+        </div>
+
+        <div class="card-panel overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-ink-muted border-b border-line">
+                        <th class="py-2 pr-4 font-medium">Ejercicio</th>
+                        <th class="py-2 pr-4 font-medium">Tú (1RM est.)</th>
+                        <th class="py-2 font-medium">{{ opponent.username }} (1RM est.)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="border-b border-line last:border-0">
+                        <td class="py-2 pr-4 text-ink-primary">{{ row.exercise.name }}</td>
+                        <td class="py-2 pr-4 font-mono {% if row.ahead == 'me' %}text-accent font-semibold{% else %}text-ink-secondary{% endif %}">
+                            {% if row.mine %}{{ row.mine|floatformat:1 }} kg{% if row.ahead == "me" %} 🔥{% endif %}{% else %}<span class="text-ink-muted">— aún no lo has probado</span>{% endif %}
+                        </td>
+                        <td class="py-2 font-mono {% if row.ahead == 'them' %}text-accent font-semibold{% else %}text-ink-secondary{% endif %}">
+                            {% if row.theirs %}{{ row.theirs|floatformat:1 }} kg{% if row.ahead == "them" %} 🔥{% endif %}{% else %}<span class="text-ink-muted">— aún no lo ha probado</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no hay ningún ejercicio en común con 1RM registrado — en cuanto alguno de los dos anote series con peso y reps, aparecerá aquí.</p>
+        {% endif %}
+    {% else %}
+    <p class="text-sm text-ink-muted">Elige con quién comparar arriba.</p>
+    {% endif %}
+
+</div>
+{% endblock %}

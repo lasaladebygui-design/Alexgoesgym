@@ -6,6 +6,7 @@
 {% url 'training:pr-list' as url_prs %}
 {% url 'training:analytics' as url_analytics %}
 {% url 'training:competition' as url_competition %}
+{% url 'training:head-to-head' as url_head_to_head %}
 {% url 'training:goal-list' as url_goals %}
 {% url 'accounts:profile' as url_profile %}
 {% with url_name=request.resolver_match.url_name|default:"" %}
@@ -17,6 +18,7 @@
 <a href="{{ url_prs }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_prs %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏆 Récords</a>
 <a href="{{ url_analytics }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_analytics %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">📈 Analíticas</a>
 <a href="{{ url_competition }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_competition %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏁 Competición</a>
+<a href="{{ url_head_to_head }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_head_to_head %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">⚔️ Cara a cara</a>
 <a href="{{ url_goals }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "goal" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🎯 Objetivos</a>
 <a href="{{ url_profile }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_profile %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">⚙️ Perfil</a>
 {% endwith %}

@@ -473,6 +473,35 @@ def competition(request):
 
 
 @login_required
+def head_to_head(request):
+    from django.contrib.auth import get_user_model
+
+    from . import services
+
+    User = get_user_model()
+    opponents = User.objects.exclude(pk=request.user.pk).order_by("username")
+
+    opponent = None
+    rows = []
+    username = request.GET.get("vs")
+    if username:
+        opponent = opponents.filter(username=username).first()
+        if opponent:
+            rows = services.head_to_head_rows(request.user, opponent)
+
+    ahead_count = sum(1 for row in rows if row["ahead"] == "me")
+    behind_count = sum(1 for row in rows if row["ahead"] == "them")
+
+    return render(request, "training/head_to_head.html", {
+        "opponents": opponents,
+        "opponent": opponent,
+        "rows": rows,
+        "ahead_count": ahead_count,
+        "behind_count": behind_count,
+    })
+
+
+@login_required
 def goal_list(request):
     from .services import goal_progress
 

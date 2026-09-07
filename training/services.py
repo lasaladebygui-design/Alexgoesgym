@@ -492,3 +492,36 @@ def leaderboard_streaks():
     rows = [(u.username, current_streak_days(u)) for u in User.objects.all()]
     rows = [row for row in rows if row[1] > 0]
     return sorted(rows, key=lambda row: row[1], reverse=True)
+
+
+# --- Cara a cara (training:head-to-head) -----------------------------------
+# No es un ranking con premio -- es "tú contra un colega, ejercicio a
+# ejercicio", reutilizando el 1RM estimado que ya se guarda como
+# PersonalRecord (no hace falta ningún modelo nuevo). Sin sistema de
+# amigos (igual que Competición): el rival puede ser cualquier otra
+# cuenta.
+
+def head_to_head_rows(user, opponent):
+    """Un dict por ejercicio donde ALGUNO de los dos tiene 1RM estimado
+    registrado, con quién va por delante ahora mismo -- None en
+    `ahead` si solo uno de los dos lo ha probado todavía (no hay nada
+    que comparar) o si están empatados."""
+    records = PersonalRecord.objects.filter(
+        user__in=[user, opponent], kind=PersonalRecord.Kind.EST_1RM,
+    ).select_related("exercise")
+
+    by_exercise = {}
+    for record in records:
+        by_exercise.setdefault(record.exercise, {})[record.user_id] = record.value_kg
+
+    rows = []
+    for exercise, values in by_exercise.items():
+        mine = values.get(user.pk)
+        theirs = values.get(opponent.pk)
+        ahead = None
+        if mine is not None and theirs is not None and mine != theirs:
+            ahead = "me" if mine > theirs else "them"
+        rows.append({"exercise": exercise, "mine": mine, "theirs": theirs, "ahead": ahead})
+
+    rows.sort(key=lambda row: row["exercise"].name)
+    return rows

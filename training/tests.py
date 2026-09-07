@@ -519,3 +519,53 @@ class CompetitionTests(TonnageTestCase):
         self.client.logout()
         response = self.client.get(reverse("training:competition"))
         self.assertNotEqual(response.status_code, 200)
+
+
+class HeadToHeadTests(TonnageTestCase):
+    """training:head-to-head -- comparativa 1 contra 1 por ejercicio (1RM
+    estimado), sin ranking ni premio, ver training/services.py."""
+
+    def setUp(self):
+        super().setUp()
+        self.rival = User.objects.create_user(username="rival", password="pass12345")
+
+    def _set(self, user, exercise, weight, reps):
+        workout = Workout.objects.create(user=user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=exercise)
+        return SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal(str(weight)), reps_performed=reps)
+
+    def test_sin_rival_elegido_solo_muestra_el_selector(self):
+        response = self.client.get(reverse("training:head-to-head"))
+        self.assertIsNone(response.context["opponent"])
+        self.assertEqual(response.context["rows"], [])
+
+    def test_marca_quien_va_por_delante_en_cada_ejercicio(self):
+        self._set(self.user, self.bench, 100, 5)
+        self._set(self.rival, self.bench, 80, 5)
+
+        response = self.client.get(reverse("training:head-to-head"), {"vs": "rival"})
+        rows = response.context["rows"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["exercise"], self.bench)
+        self.assertEqual(rows[0]["ahead"], "me")
+        self.assertEqual(response.context["ahead_count"], 1)
+        self.assertEqual(response.context["behind_count"], 0)
+
+    def test_ejercicio_que_solo_ha_probado_uno_sale_sin_ganador(self):
+        self._set(self.user, self.bench, 60, 8)
+
+        response = self.client.get(reverse("training:head-to-head"), {"vs": "rival"})
+        rows = response.context["rows"]
+        self.assertEqual(len(rows), 1)
+        self.assertIsNone(rows[0]["ahead"])
+        self.assertIsNone(rows[0]["theirs"])
+
+    def test_rival_invalido_no_rompe_la_pagina(self):
+        response = self.client.get(reverse("training:head-to-head"), {"vs": "no-existe"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["opponent"])
+
+    def test_pagina_requiere_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("training:head-to-head"))
+        self.assertNotEqual(response.status_code, 200)
