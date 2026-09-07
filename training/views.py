@@ -447,6 +447,27 @@ def analytics(request):
 
 
 @login_required
+def competition(request):
+    from . import services
+
+    volume_rows = services.leaderboard_volume_this_week()
+    workouts_rows = services.leaderboard_workouts_this_week()
+    streak_rows = services.leaderboard_streaks()
+
+    def with_rank_and_you(rows):
+        return [
+            {"rank": i + 1, "username": username, "value": value, "is_you": username == request.user.username}
+            for i, (username, value) in enumerate(rows)
+        ]
+
+    return render(request, "training/competition.html", {
+        "volume_rows": with_rank_and_you(volume_rows),
+        "workouts_rows": with_rank_and_you(workouts_rows),
+        "streak_rows": with_rank_and_you(streak_rows),
+    })
+
+
+@login_required
 def goal_list(request):
     from .services import goal_progress
 

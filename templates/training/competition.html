@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Competición · Tonnage{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">🏁 Competición</h1>
+        <p class="text-sm text-ink-muted mt-1">Quién entrena mejor esta semana — todo el mundo con cuenta compite, sin nada que pedir ni aceptar.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <div class="card-panel">
+            <h2 class="font-display text-lg font-semibold mb-1">💪 Volumen</h2>
+            <p class="text-xs text-ink-muted mb-4">Esta semana, en kg.</p>
+            {% if volume_rows %}
+            <ol class="space-y-1">
+                {% for row in volume_rows %}
+                <li class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg {% if row.is_you %}bg-accent/10 border border-accent/30{% endif %}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-5 text-ink-muted font-mono">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{ row.rank }}{% endif %}</span>
+                        <span class="{% if row.is_you %}text-accent font-semibold{% else %}text-ink-primary{% endif %}">{{ row.username }}{% if row.is_you %} (tú){% endif %}</span>
+                    </span>
+                    <span class="font-mono text-ink-primary">{{ row.value|floatformat:0|intcomma }} kg</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-sm text-ink-muted">Nadie ha registrado series esta semana todavía.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-panel">
+            <h2 class="font-display text-lg font-semibold mb-1">🏋️ Entrenamientos</h2>
+            <p class="text-xs text-ink-muted mb-4">Completados esta semana.</p>
+            {% if workouts_rows %}
+            <ol class="space-y-1">
+                {% for row in workouts_rows %}
+                <li class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg {% if row.is_you %}bg-accent/10 border border-accent/30{% endif %}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-5 text-ink-muted font-mono">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{ row.rank }}{% endif %}</span>
+                        <span class="{% if row.is_you %}text-accent font-semibold{% else %}text-ink-primary{% endif %}">{{ row.username }}{% if row.is_you %} (tú){% endif %}</span>
+                    </span>
+                    <span class="font-mono text-ink-primary">{{ row.value }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-sm text-ink-muted">Nadie ha completado un entrenamiento esta semana todavía.</p>
+            {% endif %}
+        </div>
+
+        <div class="card-panel">
+            <h2 class="font-display text-lg font-semibold mb-1">🔥 Racha</h2>
+            <p class="text-xs text-ink-muted mb-4">Días seguidos entrenando.</p>
+            {% if streak_rows %}
+            <ol class="space-y-1">
+                {% for row in streak_rows %}
+                <li class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg {% if row.is_you %}bg-accent/10 border border-accent/30{% endif %}">
+                    <span class="flex items-center gap-2">
+                        <span class="w-5 text-ink-muted font-mono">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{ row.rank }}{% endif %}</span>
+                        <span class="{% if row.is_you %}text-accent font-semibold{% else %}text-ink-primary{% endif %}">{{ row.username }}{% if row.is_you %} (tú){% endif %}</span>
+                    </span>
+                    <span class="font-mono text-ink-primary">{{ row.value }} día{{ row.value|pluralize }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-sm text-ink-muted">Nadie tiene racha activa ahora mismo.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

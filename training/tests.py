@@ -349,7 +349,13 @@ class AnalyticsTests(TonnageTestCase):
         we1 = WorkoutExercise.objects.create(workout=this_week, exercise=self.bench)
         SetEntry.objects.create(workout_exercise=we1, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
 
-        last_week = self._completed_workout(days_ago=8)
+        # Un desplazamiento fijo (antes: 8 días) cae dentro de "la semana
+        # pasada" salvo justo los lunes, que es cuando este test se
+        # ejecutó por primera vez en verde -- day_of_week + 3 siempre cae
+        # a mitad de la semana pasada, pase lo que pase con qué día es hoy.
+        from django.utils import timezone as tz
+        days_ago = tz.localdate().weekday() + 3
+        last_week = self._completed_workout(days_ago=days_ago)
         we2 = WorkoutExercise.objects.create(workout=last_week, exercise=self.bench)
         SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
 
@@ -449,3 +455,51 @@ class RepMaxTableTests(TonnageTestCase):
         table = dict(response.context["rep_max_table"])
         self.assertEqual(table[1], Decimal("100.0"))
         self.assertLess(table[10], table[1])
+
+
+class CompetitionTests(TonnageTestCase):
+    """training:competition -- ranking entre todo el mundo con cuenta
+    (sin sistema de amigos aparte, ver training/services.py)."""
+
+    def _completed_workout(self, user, days_ago=0):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        return Workout.objects.create(
+            user=user, name="Test", date=tz.localdate() - timedelta(days=days_ago),
+            start_time=Workout.start_time.field.default(), status=Workout.Status.COMPLETED,
+        )
+
+    def test_pagina_carga_sin_datos(self):
+        response = self.client.get(reverse("training:competition"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nadie ha registrado series")
+
+    def test_te_marca_a_ti_y_ordena_por_volumen(self):
+        other = User.objects.create_user(username="rival", password="pass12345")
+
+        workout = self._completed_workout(self.user)
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+
+        other_workout = self._completed_workout(other)
+        we2 = WorkoutExercise.objects.create(workout=other_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        response = self.client.get(reverse("training:competition"))
+        rows = response.context["volume_rows"]
+        self.assertEqual(rows[0]["username"], "rival")
+        self.assertEqual(rows[1]["username"], "lifter")
+        self.assertTrue(rows[1]["is_you"])
+        self.assertFalse(rows[0]["is_you"])
+
+    def test_entrenamientos_de_la_semana_pasada_no_cuentan(self):
+        self._completed_workout(self.user, days_ago=10)
+        response = self.client.get(reverse("training:competition"))
+        self.assertEqual(response.context["workouts_rows"], [])
+
+    def test_pagina_requiere_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("training:competition"))
+        self.assertNotEqual(response.status_code, 200)

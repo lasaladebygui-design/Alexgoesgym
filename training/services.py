@@ -433,3 +433,52 @@ def rep_max_table(user, exercise):
         (reps, best_1rm if reps == 1 else round(best_1rm / (Decimal("1") + Decimal(reps) / Decimal("30")), 1))
         for reps in (1, 3, 5, 8, 10, 12)
     ]
+
+
+# --- Competición (training:competition) ---------------------------------
+# Tonnage es para un grupo pequeño de gente que se conoce -- por eso el
+# ranking compara a TODO el mundo con cuenta, sin un sistema de amigos
+# aparte (nada que pedir ni aceptar): quien se registra ya compite.
+
+def leaderboard_volume_this_week():
+    """Volumen total de esta semana, de más a menos."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import F
+
+    User = get_user_model()
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+
+    rows = SetEntry.objects.filter(
+        workout_exercise__workout__date__gte=week_start,
+        completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+    ).values("workout_exercise__workout__user_id").annotate(
+        volume=Sum(F("weight_kg") * F("reps_performed"))
+    )
+    by_user = {r["workout_exercise__workout__user_id"]: r["volume"] for r in rows}
+    usernames = dict(User.objects.filter(pk__in=by_user).values_list("pk", "username"))
+    ranked = sorted(by_user.items(), key=lambda item: item[1], reverse=True)
+    return [(usernames[uid], volume) for uid, volume in ranked]
+
+
+def leaderboard_workouts_this_week():
+    """Entrenamientos completados esta semana, de más a menos."""
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    rows = (
+        Workout.objects.filter(status=Workout.Status.COMPLETED, date__gte=week_start)
+        .values("user__username").annotate(n=Count("id")).order_by("-n")
+    )
+    return [(r["user__username"], r["n"]) for r in rows]
+
+
+def leaderboard_streaks():
+    """Racha de días consecutivos entrenando, de más a menos -- reutiliza
+    current_streak_days por persona (son pocas cuentas, no compensa una
+    consulta SQL más compleja solo para esto)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    rows = [(u.username, current_streak_days(u)) for u in User.objects.all()]
+    rows = [row for row in rows if row[1] > 0]
+    return sorted(rows, key=lambda row: row[1], reverse=True)

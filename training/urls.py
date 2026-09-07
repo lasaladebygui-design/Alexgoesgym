@@ -36,6 +36,7 @@ urlpatterns = [
 
     path("records/", views.pr_list, name="pr-list"),
     path("analiticas/", views.analytics, name="analytics"),
+    path("competicion/", views.competition, name="competition"),
 
     path("objetivos/", views.goal_list, name="goal-list"),
     path("objetivos/nuevo/", views.goal_create, name="goal-create"),
