@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Amigos · Tonnage{% endblock %}
+{% block content %}
+<div class="space-y-8 max-w-2xl">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">Amigos</h1>
+        <p class="text-sm text-ink-muted mt-1">Añade a quien quieras comparar en la Liga y Cara a cara -- el resto de gente con cuenta sigue pudiendo retarte, esto solo filtra el ranking a "solo amigos".</p>
+    </div>
+
+    <form method="get" class="flex gap-2">
+        <input type="search" name="q" value="{{ query }}" placeholder="Buscar por usuario..." autofocus>
+        <button type="submit" class="btn-ghost">Buscar</button>
+    </form>
+
+    {% if query %}
+    <div class="card-panel">
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Resultados</h2>
+        {% if results %}
+        <ul class="space-y-2">
+            {% for person in results %}
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-ink-primary">{{ person.username }}</span>
+                <form method="post" action="{% url 'accounts:friend-request-send' username=person.username %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost text-xs">+ Añadir</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-ink-muted">Nadie con ese nombre (o ya sois amigos).</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if incoming %}
+    <div class="card-panel">
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Solicitudes recibidas</h2>
+        <ul class="space-y-2">
+            {% for req in incoming %}
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-ink-primary">{{ req.from_user.username }}</span>
+                <div class="flex gap-2">
+                    <form method="post" action="{% url 'accounts:friend-request-accept' pk=req.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-primary text-xs px-3 py-1.5">Aceptar</button>
+                    </form>
+                    <form method="post" action="{% url 'accounts:friend-request-decline' pk=req.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-ghost text-xs">Rechazar</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if outgoing %}
+    <div class="card-panel">
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Solicitudes enviadas</h2>
+        <ul class="space-y-2">
+            {% for req in outgoing %}
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-ink-secondary">{{ req.to_user.username }} — pendiente</span>
+                <form method="post" action="{% url 'accounts:friend-request-withdraw' pk=req.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost text-xs">Retirar</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="card-panel">
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Tus amigos ({{ friends|length }})</h2>
+        {% if friends %}
+        <ul class="space-y-2">
+            {% for friend in friends %}
+            <li class="text-sm text-ink-primary">{{ friend.username }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no tienes amigos añadidos. Búscalos arriba.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

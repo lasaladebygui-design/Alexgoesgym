@@ -439,7 +439,16 @@ def analytics(request):
         for lift in top_lifts
     ]
 
+    total_volume_labels, total_volume_values = services.total_volume_by_week(user, weeks=12)
+    exercise_freq = services.exercise_frequency(user, weeks=8)
+
     context = {
+        "total_volume_labels": total_volume_labels,
+        "total_volume_values": [float(v) for v in total_volume_values],
+        "has_total_volume_data": any(v > 0 for v in total_volume_values),
+        "exercise_freq_labels": [name for name, _ in exercise_freq],
+        "exercise_freq_values": [n for _, n in exercise_freq],
+        "has_exercise_freq_data": bool(exercise_freq),
         "week": week,
         "muscle_chart_labels": muscle_labels,
         "muscle_chart_series": muscle_chart_series,
@@ -469,10 +478,23 @@ def competition(request):
     if period not in ("today", "week"):
         period = "week"
 
+    scope = request.GET.get("scope", "all")
+    if scope not in ("all", "friends"):
+        scope = "all"
+
     points_rows = services.leaderboard_points(period)
     volume_rows = services.leaderboard_volume(period)
     workouts_rows = services.leaderboard_workouts(period)
     streak_rows = services.leaderboard_streaks()
+
+    if scope == "friends":
+        from accounts.models import friends_of
+
+        allowed = {f.username for f in friends_of(request.user)} | {request.user.username}
+        points_rows = [row for row in points_rows if row[0] in allowed]
+        volume_rows = [row for row in volume_rows if row[0] in allowed]
+        workouts_rows = [row for row in workouts_rows if row[0] in allowed]
+        streak_rows = [row for row in streak_rows if row[0] in allowed]
 
     def with_rank_and_you(rows):
         return [
@@ -482,6 +504,7 @@ def competition(request):
 
     return render(request, "training/competition.html", {
         "period": period,
+        "scope": scope,
         "points_rows": with_rank_and_you(points_rows),
         "volume_rows": with_rank_and_you(volume_rows),
         "workouts_rows": with_rank_and_you(workouts_rows),

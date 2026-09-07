@@ -327,6 +327,57 @@ def muscle_volume_by_week(user, weeks=8):
     return labels, series
 
 
+def total_volume_by_week(user, weeks=12):
+    """Volumen total (todos los grupos musculares juntos) semana a semana
+    -- a diferencia de `muscle_volume_by_week` (apilado por músculo, para
+    ver el reparto), esto es la línea de "voy a más o a menos" en
+    conjunto, más fácil de leer de un vistazo que un gráfico apilado con
+    muchas capas."""
+    from django.db.models import F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    rows = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__user=user,
+            workout_exercise__workout__date__gte=first_monday,
+            completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+        )
+        .values("workout_exercise__workout__date")
+        .annotate(volume=Sum(F("weight_kg") * F("reps_performed")))
+    )
+    week_totals = [Decimal("0")] * weeks
+    for r in rows:
+        week_index = (r["workout_exercise__workout__date"] - first_monday).days // 7
+        if 0 <= week_index < weeks:
+            week_totals[week_index] += r["volume"]
+
+    labels = [(first_monday + timedelta(weeks=i)).strftime("%d/%m") for i in range(weeks)]
+    return labels, week_totals
+
+
+def exercise_frequency(user, weeks=8, limit=8):
+    """Los ejercicios que más series han recibido en las últimas `weeks`
+    semanas -- para ver en qué se está yendo realmente el tiempo, más
+    concreto que el reparto por grupo muscular (dos personas pueden
+    repartir igual entre "pierna" y estar una haciendo solo sentadilla y
+    la otra solo prensa)."""
+    since = timezone.localdate() - timedelta(weeks=weeks)
+    rows = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__user=user,
+            workout_exercise__workout__date__gte=since,
+            completed=True,
+        )
+        .values("workout_exercise__exercise__name")
+        .annotate(n=Count("id"))
+        .order_by("-n")[:limit]
+    )
+    return [(r["workout_exercise__exercise__name"], r["n"]) for r in rows]
+
+
 def muscle_balance(user, days=30):
     """Qué parte del volumen de los últimos `days` días se ha ido a cada
     grupo muscular -- para ver de un vistazo si el reparto está
@@ -558,13 +609,40 @@ def leaderboard_workouts(period="week"):
     return [(r["user__username"], r["n"]) for r in rows]
 
 
+MUSCLE_VARIETY_BONUS = 15
+
+
+def _muscle_groups_trained_by_username(since):
+    """Cuántos grupos musculares DISTINTOS ha tocado cada usuario desde
+    `since` -- entrenar solo pecho una y otra vez no puntúa igual que
+    repartir entre varios grupos (ver bonus de variedad en
+    leaderboard_points)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    rows = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__date__gte=since, completed=True,
+        )
+        .values("workout_exercise__workout__user_id", "workout_exercise__exercise__primary_muscle_id")
+        .distinct()
+    )
+    counts = {}
+    for r in rows:
+        counts[r["workout_exercise__workout__user_id"]] = counts.get(r["workout_exercise__workout__user_id"], 0) + 1
+    usernames_by_id = dict(User.objects.filter(pk__in=counts).values_list("pk", "username"))
+    return {usernames_by_id[uid]: n for uid, n in counts.items()}
+
+
 def leaderboard_points(period="week"):
     """Ranking único de la Liga: puntos basados en rendimiento, no en
-    asistencia -- volumen levantado (1 punto cada 20kg) más un bonus por
-    cada PR (1RM estimado) batido en el periodo (25 puntos), que premia
-    progresar de verdad y no solo acumular series. Sin puntos por
-    entrenar sin más: eso ya lo enseña el panel de Entrenamientos de
-    abajo."""
+    asistencia -- volumen levantado (1 punto cada 20kg), un bonus por
+    cada PR (1RM estimado) batido en el periodo (25 puntos) que premia
+    progresar de verdad y no solo acumular series, y un bonus por
+    variedad (15 puntos por cada grupo muscular DISTINTO entrenado) para
+    que entrenar solo un grupo puntúe menos que repartir entre varios.
+    Sin puntos por entrenar sin más: eso ya lo enseña el panel de
+    Entrenamientos de abajo."""
     from django.contrib.auth import get_user_model
 
     User = get_user_model()
@@ -585,9 +663,16 @@ def leaderboard_points(period="week"):
     for r in prs_rows:
         prs_by_username[usernames_by_id[r["user_id"]]] = r["n"]
 
-    usernames = set(volume_by_user) | set(prs_by_username)
+    variety_by_username = _muscle_groups_trained_by_username(since)
+
+    usernames = set(volume_by_user) | set(prs_by_username) | set(variety_by_username)
     scored = [
-        (username, round(float(volume_by_user.get(username, 0)) / 20) + prs_by_username.get(username, 0) * 25)
+        (
+            username,
+            round(float(volume_by_user.get(username, 0)) / 20)
+            + prs_by_username.get(username, 0) * 25
+            + variety_by_username.get(username, 0) * MUSCLE_VARIETY_BONUS,
+        )
         for username in usernames
     ]
     scored = [row for row in scored if row[1] > 0]

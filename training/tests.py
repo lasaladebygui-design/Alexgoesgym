@@ -460,6 +460,30 @@ class AnalyticsTests(TonnageTestCase):
         labels = {lift["label"] for lift in chart}
         self.assertEqual(labels, {"Press banca", "Sentadilla"})
 
+    def test_volumen_total_suma_todos_los_musculos_de_la_semana(self):
+        legs = MuscleGroup.objects.create(name="Piernas", region="lower")
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=legs, equipment="barbell")
+        workout = self._completed_workout()
+        we_chest = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we_chest, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+        we_legs = WorkoutExercise.objects.create(workout=workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we_legs, set_number=1, weight_kg=Decimal("120"), reps_performed=5)
+
+        response = self.client.get(reverse("training:analytics"))
+        self.assertIn(1400.0, response.context["total_volume_values"])
+
+    def test_ejercicios_mas_frecuentes_cuenta_series_no_entrenamientos(self):
+        workout = self._completed_workout()
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+        SetEntry.objects.create(workout_exercise=we, set_number=2, weight_kg=Decimal("80"), reps_performed=8)
+
+        response = self.client.get(reverse("training:analytics"))
+        labels = response.context["exercise_freq_labels"]
+        values = response.context["exercise_freq_values"]
+        self.assertEqual(labels[0], "Press banca")
+        self.assertEqual(values[0], 2)
+
     def test_pagina_requiere_login(self):
         self.client.logout()
         response = self.client.get(reverse("training:analytics"))
@@ -555,9 +579,47 @@ class CompetitionTests(TonnageTestCase):
         response = self.client.get(reverse("training:competition"))
         rows = {row["username"]: row["value"] for row in response.context["points_rows"]}
         # 2000kg de volumen / 20 = 100 puntos, más 25 por el PR que la serie
-        # acaba de batir (era el primer PersonalRecord de este ejercicio).
-        self.assertEqual(rows["lifter"], 125)
+        # acaba de batir (era el primer PersonalRecord de este ejercicio),
+        # más 15 por el único grupo muscular (Pecho) que ha tocado.
+        self.assertEqual(rows["lifter"], 140)
         self.assertNotIn("rival", rows)
+
+    def test_liga_puntua_mas_por_repartir_entre_varios_grupos_musculares(self):
+        legs = MuscleGroup.objects.create(name="Piernas", region="lower")
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=legs, equipment="barbell")
+
+        # Mismo volumen exacto (1000kg), pero uno solo toca pecho y el
+        # otro reparte entre pecho y pierna -- debe puntuar más el que
+        # reparte, aunque el volumen sea idéntico.
+        solo_workout = self._completed_workout(self.user)
+        we = WorkoutExercise.objects.create(workout=solo_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        other = User.objects.create_user(username="variado", password="pass12345")
+        other_workout = self._completed_workout(other)
+        we_chest = WorkoutExercise.objects.create(workout=other_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we_chest, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+        we_legs = WorkoutExercise.objects.create(workout=other_workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we_legs, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+
+        response = self.client.get(reverse("training:competition"))
+        rows = {row["username"]: row["value"] for row in response.context["points_rows"]}
+        self.assertGreater(rows["variado"], rows["lifter"])
+
+    def test_scope_amigos_filtra_a_solo_amigos_y_a_ti_mismo(self):
+        from accounts.models import FriendRequest
+
+        friend = User.objects.create_user(username="amigo", password="pass12345")
+        stranger = User.objects.create_user(username="desconocido", password="pass12345")
+        FriendRequest.objects.create(from_user=self.user, to_user=friend, accepted=True)
+
+        self._completed_workout(self.user)
+        self._completed_workout(friend)
+        self._completed_workout(stranger)
+
+        response = self.client.get(reverse("training:competition"), {"scope": "friends"})
+        usernames = {row["username"] for row in response.context["workouts_rows"]}
+        self.assertEqual(usernames, {"lifter", "amigo"})
 
     def test_pagina_requiere_login(self):
         self.client.logout()

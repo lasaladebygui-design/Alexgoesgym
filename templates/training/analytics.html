@@ -79,6 +79,17 @@
         </div>
     </div>
 
+    <!-- Volumen total -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Volumen total</h2>
+        <p class="text-xs text-ink-muted mb-4">Últimas 12 semanas, todos los grupos juntos — la tendencia general, de un vistazo.</p>
+        {% if has_total_volume_data %}
+        <div class="h-56"><canvas id="total-volume-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no hay series registradas para pintar esto.</p>
+        {% endif %}
+    </div>
+
     <!-- Intensidad (RPE) -->
     <div class="card-panel">
         <h2 class="font-display text-lg font-semibold mb-1">Intensidad percibida (RPE medio)</h2>
@@ -130,6 +141,17 @@
         {% endif %}
     </div>
 
+    <!-- Ejercicios más frecuentes -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Ejercicios más frecuentes</h2>
+        <p class="text-xs text-ink-muted mb-4">Por número de series, últimas 8 semanas — dónde se va el tiempo de verdad.</p>
+        {% if has_exercise_freq_data %}
+        <div class="h-64"><canvas id="exercise-freq-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no hay series registradas para pintar esto.</p>
+        {% endif %}
+    </div>
+
 </div>
 {% endblock %}
 
@@ -160,6 +182,32 @@ new Chart(document.getElementById('muscle-chart'), {
         scales: {
             x: { stacked: true, grid: { display: false }, ticks: { color: '#898781' } },
             y: { stacked: true, grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+    },
+});
+</script>
+{% endif %}
+{% if has_total_volume_data %}
+<script>
+new Chart(document.getElementById('total-volume-chart'), {
+    type: 'bar',
+    data: {
+        labels: {{ total_volume_labels|safe }},
+        datasets: [{
+            data: {{ total_volume_values|safe }},
+            backgroundColor: '#eb6834',
+            borderRadius: 4,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} kg` } },
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { color: '#898781' } },
+            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
         },
     },
 });
@@ -231,6 +279,33 @@ new Chart(document.getElementById('top-lifts-chart'), {
         scales: {
             x: { type: 'category', grid: { display: false }, ticks: { color: '#898781' } },
             y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+    },
+});
+</script>
+{% endif %}
+{% if has_exercise_freq_data %}
+<script>
+new Chart(document.getElementById('exercise-freq-chart'), {
+    type: 'bar',
+    data: {
+        labels: {{ exercise_freq_labels|safe }},
+        datasets: [{
+            data: {{ exercise_freq_values|safe }},
+            backgroundColor: '#3987e5',
+            borderRadius: 4,
+        }],
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x} serie${ctx.parsed.x === 1 ? '' : 's'}` } },
+        },
+        scales: {
+            x: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781', precision: 0 } },
+            y: { grid: { display: false }, ticks: { color: '#898781' } },
         },
     },
 });

@@ -10,16 +10,22 @@
             <h1 class="font-display text-2xl font-bold text-ink-primary">🏁 Competición</h1>
             <p class="text-sm text-ink-muted mt-1">Quién entrena mejor — todo el mundo con cuenta compite, sin nada que pedir ni aceptar.</p>
         </div>
-        <div class="flex rounded-lg border border-line overflow-hidden">
-            <a href="?period=today" class="px-3 py-1.5 text-sm font-medium {% if period == 'today' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Hoy</a>
-            <a href="?period=week" class="px-3 py-1.5 text-sm font-medium {% if period == 'week' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Esta semana</a>
+        <div class="flex flex-col items-end gap-2">
+            <div class="flex rounded-lg border border-line overflow-hidden">
+                <a href="{% querystring period='today' %}" class="px-3 py-1.5 text-sm font-medium {% if period == 'today' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Hoy</a>
+                <a href="{% querystring period='week' %}" class="px-3 py-1.5 text-sm font-medium {% if period == 'week' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Esta semana</a>
+            </div>
+            <div class="flex rounded-lg border border-line overflow-hidden">
+                <a href="{% querystring scope='all' %}" class="px-3 py-1.5 text-sm font-medium {% if scope == 'all' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Todos</a>
+                <a href="{% querystring scope='friends' %}" class="px-3 py-1.5 text-sm font-medium {% if scope == 'friends' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Solo amigos</a>
+            </div>
         </div>
     </div>
 
     <div class="card-panel border-accent/30">
         <div class="flex items-center justify-between mb-1">
             <h2 class="font-display text-lg font-semibold">🏆 Liga</h2>
-            <span class="text-xs text-ink-muted">1 punto / 20kg de volumen + 25 por cada PR</span>
+            <span class="text-xs text-ink-muted">1 punto / 20kg + 25 por PR + 15 por cada grupo muscular distinto</span>
         </div>
         <p class="text-xs text-ink-muted mb-4">Un único marcador basado en rendimiento -- {% if period == 'today' %}hoy{% else %}esta semana{% endif %}.</p>
         {% if points_rows %}

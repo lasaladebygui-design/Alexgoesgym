@@ -9,6 +9,7 @@
 {% url 'training:head-to-head' as url_head_to_head %}
 {% url 'training:goal-list' as url_goals %}
 {% url 'accounts:profile' as url_profile %}
+{% url 'accounts:friends' as url_friends %}
 {% with url_name=request.resolver_match.url_name|default:"" %}
 <a href="{{ url_dashboard }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_dashboard %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">📊 Dashboard</a>
 <a href="{{ url_history }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "workout" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏋️ Entrenamientos</a>
@@ -19,6 +20,7 @@
 <a href="{{ url_analytics }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_analytics %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">📈 Analíticas</a>
 <a href="{{ url_competition }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_competition %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🏁 Competición</a>
 <a href="{{ url_head_to_head }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_head_to_head %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">⚔️ Cara a cara</a>
+<a href="{{ url_friends }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_friends %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🧑‍🤝‍🧑 Amigos</a>
 <a href="{{ url_goals }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if "goal" in url_name %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">🎯 Objetivos</a>
 <a href="{{ url_profile }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium {% if request.path == url_profile %}bg-accent/15 text-accent{% else %}text-ink-secondary hover:bg-surface-raised hover:text-ink-primary{% endif %}">⚙️ Perfil</a>
 {% endwith %}

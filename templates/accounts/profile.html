@@ -15,5 +15,13 @@
         {% endfor %}
         <button type="submit" class="btn-primary w-full">Guardar</button>
     </form>
+
+    <div class="card-panel mt-4 flex items-center justify-between">
+        <div>
+            <p class="text-sm font-medium text-ink-primary">Copia de seguridad</p>
+            <p class="text-xs text-ink-muted">Entrenamientos, récords, peso y objetivos en un Excel.</p>
+        </div>
+        <a href="{% url 'accounts:export-excel' %}" class="btn-ghost">⬇ Exportar</a>
+    </div>
 </div>
 {% endblock %}
