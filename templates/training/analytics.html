@@ -90,6 +90,46 @@
         {% endif %}
     </div>
 
+    <!-- Constancia (mapa de calor) -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Constancia</h2>
+        <p class="text-xs text-ink-muted mb-4">Últimas {{ heatmap_weeks|length }} semanas — cada cuadro es un día, más intenso cuanto más volumen.</p>
+        {% if has_heatmap_data %}
+        <div class="overflow-x-auto">
+            <div class="inline-flex flex-col gap-1 min-w-max">
+                <div class="flex gap-1 pl-0">
+                    {% for label in "LMXJVSD" %}
+                    <span class="w-4 text-[10px] text-ink-muted text-center">{{ label }}</span>
+                    {% endfor %}
+                </div>
+                {% for week_row in heatmap_weeks %}
+                <div class="flex gap-1">
+                    {% for day in week_row %}
+                    <span
+                        class="w-4 h-4 rounded-sm {% if day.is_future %}opacity-0{% elif day.level == 0 %}bg-surface-raised{% elif day.level == 1 %}bg-accent/25{% elif day.level == 2 %}bg-accent/50{% elif day.level == 3 %}bg-accent/75{% else %}bg-accent{% endif %}"
+                        title="{{ day.date|date:'d/m/Y' }}{% if day.volume %} — {{ day.volume|floatformat:0 }} kg{% endif %}"
+                    ></span>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no hay series registradas para pintar esto.</p>
+        {% endif %}
+    </div>
+
+    <!-- Tus mejores levantamientos -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Tus mejores levantamientos</h2>
+        <p class="text-xs text-ink-muted mb-4">1RM estimado de tus ejercicios más entrenados, últimos 6 meses.</p>
+        {% if has_top_lifts_data %}
+        <div class="h-72"><canvas id="top-lifts-chart"></canvas></div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Registra peso y reps en un par de entrenamientos para ver tu progresión aquí.</p>
+        {% endif %}
+    </div>
+
 </div>
 {% endblock %}
 
@@ -162,6 +202,35 @@ new Chart(document.getElementById('rpe-chart'), {
         scales: {
             x: { grid: { display: false }, ticks: { color: '#898781' } },
             y: { min: 1, max: 10, grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        },
+    },
+});
+</script>
+{% endif %}
+{% if has_top_lifts_data %}
+<script>
+const topLiftsPalette = ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1'];
+const topLiftsData = {{ top_lifts_chart_json|safe }};
+new Chart(document.getElementById('top-lifts-chart'), {
+    type: 'line',
+    data: {
+        datasets: topLiftsData.map((lift, i) => ({
+            label: lift.label,
+            data: lift.labels.map((d, j) => ({ x: d, y: lift.values[j] })),
+            borderColor: topLiftsPalette[i % topLiftsPalette.length],
+            backgroundColor: topLiftsPalette[i % topLiftsPalette.length],
+            tension: 0.3, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2, fill: false,
+        })),
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#c8c6c0', boxWidth: 12, padding: 12 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y} kg` } },
+        },
+        scales: {
+            x: { type: 'category', grid: { display: false }, ticks: { color: '#898781' } },
+            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
         },
     },
 });

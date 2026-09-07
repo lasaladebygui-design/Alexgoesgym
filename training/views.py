@@ -428,6 +428,17 @@ def analytics(request):
 
     rpe_labels, rpe_values = services.rpe_trend(user, weeks=8)
 
+    heatmap_weeks = services.training_heatmap(user, weeks=16)
+    top_lifts = services.top_lifts_progression(user, limit=4)
+    top_lifts_chart = [
+        {
+            "label": lift["exercise"].name,
+            "labels": [d.isoformat() for d, _ in lift["points"]],
+            "values": [float(v) for _, v in lift["points"]],
+        }
+        for lift in top_lifts
+    ]
+
     context = {
         "week": week,
         "muscle_chart_labels": muscle_labels,
@@ -442,6 +453,10 @@ def analytics(request):
         # todo el bloque con un ReferenceError silencioso.
         "rpe_values_json": json.dumps(rpe_values),
         "has_rpe_data": any(v is not None for v in rpe_values),
+        "heatmap_weeks": heatmap_weeks,
+        "has_heatmap_data": any(day["volume"] for week_row in heatmap_weeks for day in week_row),
+        "top_lifts_chart_json": json.dumps(top_lifts_chart),
+        "has_top_lifts_data": bool(top_lifts_chart),
     }
     return render(request, "training/analytics.html", context)
 
@@ -454,6 +469,7 @@ def competition(request):
     if period not in ("today", "week"):
         period = "week"
 
+    points_rows = services.leaderboard_points(period)
     volume_rows = services.leaderboard_volume(period)
     workouts_rows = services.leaderboard_workouts(period)
     streak_rows = services.leaderboard_streaks()
@@ -466,6 +482,7 @@ def competition(request):
 
     return render(request, "training/competition.html", {
         "period": period,
+        "points_rows": with_rank_and_you(points_rows),
         "volume_rows": with_rank_and_you(volume_rows),
         "workouts_rows": with_rank_and_you(workouts_rows),
         "streak_rows": with_rank_and_you(streak_rows),

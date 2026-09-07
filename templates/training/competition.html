@@ -16,7 +16,32 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="card-panel border-accent/30">
+        <div class="flex items-center justify-between mb-1">
+            <h2 class="font-display text-lg font-semibold">🏆 Liga</h2>
+            <span class="text-xs text-ink-muted">1 punto / 20kg de volumen + 25 por cada PR</span>
+        </div>
+        <p class="text-xs text-ink-muted mb-4">Un único marcador basado en rendimiento -- {% if period == 'today' %}hoy{% else %}esta semana{% endif %}.</p>
+        {% if points_rows %}
+        <ol class="space-y-1">
+            {% for row in points_rows %}
+            <li class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg {% if row.is_you %}bg-accent/10 border border-accent/30{% endif %}">
+                <span class="flex items-center gap-2">
+                    <span class="w-5 text-ink-muted font-mono">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{ row.rank }}{% endif %}</span>
+                    <span class="{% if row.is_you %}text-accent font-semibold{% else %}text-ink-primary{% endif %}">{{ row.username }}{% if row.is_you %} (tú){% endif %}</span>
+                </span>
+                <span class="font-mono text-ink-primary">{{ row.value|intcomma }} pts</span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p class="text-sm text-ink-muted">{% if period == 'today' %}Nadie ha sumado puntos hoy todavía.{% else %}Nadie ha sumado puntos esta semana todavía.{% endif %}</p>
+        {% endif %}
+    </div>
+
+    <div>
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Detalle</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <div class="card-panel">
             <h2 class="font-display text-lg font-semibold mb-1">💪 Volumen</h2>
@@ -78,6 +103,8 @@
             {% endif %}
         </div>
 
+        </div>
     </div>
+
 </div>
 {% endblock %}

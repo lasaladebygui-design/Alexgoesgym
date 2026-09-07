@@ -431,6 +431,35 @@ class AnalyticsTests(TonnageTestCase):
         self.assertIn("null", response.context["rpe_values_json"])
         self.assertNotIn("None", response.content.decode())
 
+    def test_mapa_de_calor_marca_el_dia_con_series_y_no_los_dias_futuros(self):
+        from django.utils import timezone as tz
+
+        workout = self._completed_workout(days_ago=0)
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"))
+        weeks = response.context["heatmap_weeks"]
+        today = tz.localdate()
+        today_cell = next(day for week_row in weeks for day in week_row if day["date"] == today)
+        self.assertGreater(today_cell["level"], 0)
+        future_cells = [day for week_row in weeks for day in week_row if day["date"] > today]
+        self.assertTrue(all(day["is_future"] for day in future_cells))
+
+    def test_mejores_levantamientos_solo_incluye_los_mas_entrenados(self):
+        legs = MuscleGroup.objects.create(name="Piernas", region="lower")
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=legs, equipment="barbell")
+        workout = self._completed_workout()
+        we_bench = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we_bench, set_number=1, weight_kg=Decimal("100"), reps_performed=5)
+        we_squat = WorkoutExercise.objects.create(workout=workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we_squat, set_number=1, weight_kg=Decimal("140"), reps_performed=5)
+
+        response = self.client.get(reverse("training:analytics"))
+        chart = json.loads(response.context["top_lifts_chart_json"])
+        labels = {lift["label"] for lift in chart}
+        self.assertEqual(labels, {"Press banca", "Sentadilla"})
+
     def test_pagina_requiere_login(self):
         self.client.logout()
         response = self.client.get(reverse("training:analytics"))
@@ -514,6 +543,21 @@ class CompetitionTests(TonnageTestCase):
         self._completed_workout(self.user, days_ago=10)
         response = self.client.get(reverse("training:competition"))
         self.assertEqual(response.context["workouts_rows"], [])
+
+    def test_liga_puntua_volumen_y_prs_no_solo_asistencia(self):
+        other = User.objects.create_user(username="rival", password="pass12345")
+
+        # self.user: mucho volumen, ningún PR nuevo aparte del propio de la serie.
+        workout = self._completed_workout(self.user)
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("200"), reps_performed=10)
+
+        response = self.client.get(reverse("training:competition"))
+        rows = {row["username"]: row["value"] for row in response.context["points_rows"]}
+        # 2000kg de volumen / 20 = 100 puntos, más 25 por el PR que la serie
+        # acaba de batir (era el primer PersonalRecord de este ejercicio).
+        self.assertEqual(rows["lifter"], 125)
+        self.assertNotIn("rival", rows)
 
     def test_pagina_requiere_login(self):
         self.client.logout()

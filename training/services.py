@@ -371,6 +371,82 @@ def rpe_trend(user, weeks=8):
     return labels, values
 
 
+def training_heatmap(user, weeks=16):
+    """Días entrenados de las últimas N semanas, en semanas completas
+    (lunes a domingo) para que cada fila del mapa de calor sea una
+    semana real -- un vistazo a la constancia que ni el volumen semanal
+    ni la racha actual enseñan por sí solos (la racha se rompe con un
+    solo día de descanso; esto no)."""
+    from django.db.models import F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    rows = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__user=user,
+            workout_exercise__workout__date__gte=first_monday,
+            completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
+        )
+        .values("workout_exercise__workout__date")
+        .annotate(volume=Sum(F("weight_kg") * F("reps_performed")))
+    )
+    volume_by_date = {r["workout_exercise__workout__date"]: float(r["volume"]) for r in rows}
+    max_volume = max(volume_by_date.values(), default=0)
+
+    def level(volume):
+        if not volume or not max_volume:
+            return 0
+        ratio = volume / max_volume
+        if ratio > 0.75:
+            return 4
+        if ratio > 0.5:
+            return 3
+        if ratio > 0.25:
+            return 2
+        return 1
+
+    weeks_grid = []
+    for w in range(weeks):
+        week_start = first_monday + timedelta(weeks=w)
+        days = []
+        for d in range(7):
+            date = week_start + timedelta(days=d)
+            volume = volume_by_date.get(date, 0)
+            days.append({"date": date, "volume": volume, "level": level(volume), "is_future": date > today})
+        weeks_grid.append(days)
+    return weeks_grid
+
+
+def top_lifts_progression(user, limit=4, days=180):
+    """Evolución del 1RM estimado de los ejercicios más entrenados (por
+    nº de series) en los últimos `days` días -- el resumen de "¿estoy
+    ganando fuerza en conjunto?" que la ficha de un solo ejercicio no
+    puede dar."""
+    since = timezone.localdate() - timedelta(days=days)
+    top_exercise_ids = (
+        SetEntry.objects.filter(
+            workout_exercise__workout__user=user,
+            workout_exercise__workout__date__gte=since,
+            completed=True,
+        )
+        .values("workout_exercise__exercise_id")
+        .annotate(n=Count("id"))
+        .order_by("-n")[:limit]
+        .values_list("workout_exercise__exercise_id", flat=True)
+    )
+
+    from .models import Exercise
+
+    lifts = []
+    for exercise in Exercise.objects.filter(pk__in=list(top_exercise_ids)):
+        points = strength_progression(user, exercise, days=days)
+        if points:
+            lifts.append({"exercise": exercise, "points": points})
+    return lifts
+
+
 def week_comparison(user):
     """Esta semana (hasta hoy) contra la semana pasada completa --
     volumen, series y entrenamientos, con el cambio en %. `None` cuando
@@ -480,6 +556,42 @@ def leaderboard_workouts(period="week"):
         .values("user__username").annotate(n=Count("id")).order_by("-n")
     )
     return [(r["user__username"], r["n"]) for r in rows]
+
+
+def leaderboard_points(period="week"):
+    """Ranking único de la Liga: puntos basados en rendimiento, no en
+    asistencia -- volumen levantado (1 punto cada 20kg) más un bonus por
+    cada PR (1RM estimado) batido en el periodo (25 puntos), que premia
+    progresar de verdad y no solo acumular series. Sin puntos por
+    entrenar sin más: eso ya lo enseña el panel de Entrenamientos de
+    abajo."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    since = _period_start(period)
+
+    volume_by_user = dict(leaderboard_volume(period))
+    prs_rows = (
+        # Solo 1RM estimado -- WEIGHT/REPS/VOLUME_SESSION se actualizan a
+        # la vez que este por la misma serie (ver training/prs.py), así
+        # que contarlos todos multiplicaba por 4 el bonus de una sola PR
+        # real.
+        PersonalRecord.objects.filter(achieved_at__date__gte=since, kind=PersonalRecord.Kind.EST_1RM)
+        .values("user_id").annotate(n=Count("id"))
+    )
+    prs_by_username = {}
+    user_ids = [r["user_id"] for r in prs_rows]
+    usernames_by_id = dict(User.objects.filter(pk__in=user_ids).values_list("pk", "username"))
+    for r in prs_rows:
+        prs_by_username[usernames_by_id[r["user_id"]]] = r["n"]
+
+    usernames = set(volume_by_user) | set(prs_by_username)
+    scored = [
+        (username, round(float(volume_by_user.get(username, 0)) / 20) + prs_by_username.get(username, 0) * 25)
+        for username in usernames
+    ]
+    scored = [row for row in scored if row[1] > 0]
+    return sorted(scored, key=lambda row: row[1], reverse=True)
 
 
 def leaderboard_streaks():
