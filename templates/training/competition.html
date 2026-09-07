@@ -5,16 +5,22 @@
 {% block content %}
 <div class="space-y-8">
 
-    <div>
-        <h1 class="font-display text-2xl font-bold text-ink-primary">🏁 Competición</h1>
-        <p class="text-sm text-ink-muted mt-1">Quién entrena mejor esta semana — todo el mundo con cuenta compite, sin nada que pedir ni aceptar.</p>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-ink-primary">🏁 Competición</h1>
+            <p class="text-sm text-ink-muted mt-1">Quién entrena mejor — todo el mundo con cuenta compite, sin nada que pedir ni aceptar.</p>
+        </div>
+        <div class="flex rounded-lg border border-line overflow-hidden">
+            <a href="?period=today" class="px-3 py-1.5 text-sm font-medium {% if period == 'today' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Hoy</a>
+            <a href="?period=week" class="px-3 py-1.5 text-sm font-medium {% if period == 'week' %}bg-accent text-accent-ink{% else %}text-ink-secondary hover:bg-surface-raised{% endif %}">Esta semana</a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <div class="card-panel">
             <h2 class="font-display text-lg font-semibold mb-1">💪 Volumen</h2>
-            <p class="text-xs text-ink-muted mb-4">Esta semana, en kg.</p>
+            <p class="text-xs text-ink-muted mb-4">{% if period == 'today' %}Hoy{% else %}Esta semana{% endif %}, en kg.</p>
             {% if volume_rows %}
             <ol class="space-y-1">
                 {% for row in volume_rows %}
@@ -28,13 +34,13 @@
                 {% endfor %}
             </ol>
             {% else %}
-            <p class="text-sm text-ink-muted">Nadie ha registrado series esta semana todavía.</p>
+            <p class="text-sm text-ink-muted">{% if period == 'today' %}Nadie ha registrado series hoy todavía.{% else %}Nadie ha registrado series esta semana todavía.{% endif %}</p>
             {% endif %}
         </div>
 
         <div class="card-panel">
             <h2 class="font-display text-lg font-semibold mb-1">🏋️ Entrenamientos</h2>
-            <p class="text-xs text-ink-muted mb-4">Completados esta semana.</p>
+            <p class="text-xs text-ink-muted mb-4">Completados {% if period == 'today' %}hoy{% else %}esta semana{% endif %}.</p>
             {% if workouts_rows %}
             <ol class="space-y-1">
                 {% for row in workouts_rows %}
@@ -48,7 +54,7 @@
                 {% endfor %}
             </ol>
             {% else %}
-            <p class="text-sm text-ink-muted">Nadie ha completado un entrenamiento esta semana todavía.</p>
+            <p class="text-sm text-ink-muted">{% if period == 'today' %}Nadie ha completado un entrenamiento hoy todavía.{% else %}Nadie ha completado un entrenamiento esta semana todavía.{% endif %}</p>
             {% endif %}
         </div>
 

@@ -450,8 +450,12 @@ def analytics(request):
 def competition(request):
     from . import services
 
-    volume_rows = services.leaderboard_volume_this_week()
-    workouts_rows = services.leaderboard_workouts_this_week()
+    period = request.GET.get("period", "week")
+    if period not in ("today", "week"):
+        period = "week"
+
+    volume_rows = services.leaderboard_volume(period)
+    workouts_rows = services.leaderboard_workouts(period)
     streak_rows = services.leaderboard_streaks()
 
     def with_rank_and_you(rows):
@@ -461,6 +465,7 @@ def competition(request):
         ]
 
     return render(request, "training/competition.html", {
+        "period": period,
         "volume_rows": with_rank_and_you(volume_rows),
         "workouts_rows": with_rank_and_you(workouts_rows),
         "streak_rows": with_rank_and_you(streak_rows),

@@ -440,17 +440,27 @@ def rep_max_table(user, exercise):
 # ranking compara a TODO el mundo con cuenta, sin un sistema de amigos
 # aparte (nada que pedir ni aceptar): quien se registra ya compite.
 
-def leaderboard_volume_this_week():
-    """Volumen total de esta semana, de más a menos."""
+def _period_start(period):
+    """"today" o "week" (cualquier otra cosa cae a "week") -- el punto de
+    partida del ranking, para poder competir tanto en el día como en la
+    semana con la misma consulta."""
+    today = timezone.localdate()
+    if period == "today":
+        return today
+    return today - timedelta(days=today.weekday())
+
+
+def leaderboard_volume(period="week"):
+    """Volumen total desde el inicio del periodo ("today" o "week"), de
+    más a menos."""
     from django.contrib.auth import get_user_model
     from django.db.models import F
 
     User = get_user_model()
-    today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday())
+    since = _period_start(period)
 
     rows = SetEntry.objects.filter(
-        workout_exercise__workout__date__gte=week_start,
+        workout_exercise__workout__date__gte=since,
         completed=True, weight_kg__isnull=False, reps_performed__isnull=False,
     ).values("workout_exercise__workout__user_id").annotate(
         volume=Sum(F("weight_kg") * F("reps_performed"))
@@ -461,12 +471,12 @@ def leaderboard_volume_this_week():
     return [(usernames[uid], volume) for uid, volume in ranked]
 
 
-def leaderboard_workouts_this_week():
-    """Entrenamientos completados esta semana, de más a menos."""
-    today = timezone.localdate()
-    week_start = today - timedelta(days=today.weekday())
+def leaderboard_workouts(period="week"):
+    """Entrenamientos completados desde el inicio del periodo ("today" o
+    "week"), de más a menos."""
+    since = _period_start(period)
     rows = (
-        Workout.objects.filter(status=Workout.Status.COMPLETED, date__gte=week_start)
+        Workout.objects.filter(status=Workout.Status.COMPLETED, date__gte=since)
         .values("user__username").annotate(n=Count("id")).order_by("-n")
     )
     return [(r["user__username"], r["n"]) for r in rows]

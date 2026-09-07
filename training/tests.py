@@ -494,6 +494,22 @@ class CompetitionTests(TonnageTestCase):
         self.assertTrue(rows[1]["is_you"])
         self.assertFalse(rows[0]["is_you"])
 
+    def test_periodo_hoy_solo_cuenta_lo_de_hoy(self):
+        # Un entrenamiento de ayer cuenta para "esta semana" (salvo que
+        # ayer cayera en la semana pasada) pero no para "hoy".
+        yesterday_workout = self._completed_workout(self.user, days_ago=1)
+        we = WorkoutExercise.objects.create(workout=yesterday_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+
+        today_workout = self._completed_workout(self.user, days_ago=0)
+        we2 = WorkoutExercise.objects.create(workout=today_workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("20"), reps_performed=10)
+
+        response = self.client.get(reverse("training:competition"), {"period": "today"})
+        self.assertEqual(response.context["period"], "today")
+        rows = response.context["volume_rows"]
+        self.assertEqual(rows[0]["value"], Decimal("200"))
+
     def test_entrenamientos_de_la_semana_pasada_no_cuentan(self):
         self._completed_workout(self.user, days_ago=10)
         response = self.client.get(reverse("training:competition"))
