@@ -113,12 +113,12 @@
             </div>
         </aside>
 
-        <div class="flex-1 flex flex-col min-w-0">
+        <div class="flex-1 flex flex-col min-w-0" x-data="{ mobileNavOpen: false }">
             <header class="md:hidden sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface-chrome/95 backdrop-blur px-4 py-3">
                 <a href="{% url 'dashboard:home' %}" class="font-display text-lg font-bold">Tonnage<span class="text-accent">.</span></a>
-                <button type="button" @click="mobileNavOpen = !mobileNavOpen" class="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-secondary">Menú</button>
+                <button type="button" @click="mobileNavOpen = !mobileNavOpen" :aria-expanded="mobileNavOpen.toString()" class="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-secondary">Menú</button>
             </header>
-            <div x-data="{ mobileNavOpen: false }" x-show="mobileNavOpen" x-cloak class="md:hidden border-b border-line bg-surface-chrome px-3 py-2 space-y-1 text-sm">
+            <div x-show="mobileNavOpen" x-cloak @click.outside="mobileNavOpen = false" class="md:hidden border-b border-line bg-surface-chrome px-3 py-2 space-y-1 text-sm">
                 {% include "partials/_nav_links.html" %}
             </div>
 
