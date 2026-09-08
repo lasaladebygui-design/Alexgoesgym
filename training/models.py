@@ -392,3 +392,100 @@ class Goal(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# --- Nutrición: qué se come, no solo qué se levanta ------------------------
+
+class Food(models.Model):
+    """Alimento del catálogo, con sus macros por 100g -- igual que
+    Exercise, `created_by=None` es el catálogo global (compartido) y con
+    dueño es solo para quien lo creó (una receta propia, una marca
+    concreta de proteína en polvo...)."""
+
+    name = models.CharField("nombre", max_length=150)
+    calories_per_100g = models.PositiveSmallIntegerField("kcal / 100g")
+    protein_per_100g = models.DecimalField("proteína / 100g", max_digits=5, decimal_places=1, default=0)
+    carbs_per_100g = models.DecimalField("carbohidratos / 100g", max_digits=5, decimal_places=1, default=0)
+    fat_per_100g = models.DecimalField("grasa / 100g", max_digits=5, decimal_places=1, default=0)
+    created_by = models.ForeignKey(
+        User, verbose_name="creado por (vacío = catálogo global)",
+        on_delete=models.CASCADE, null=True, blank=True, related_name="custom_foods",
+    )
+
+    class Meta:
+        verbose_name = "alimento"
+        verbose_name_plural = "alimentos"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["name"], condition=models.Q(created_by__isnull=True), name="nombre_unico_catalogo_alimentos_global"),
+            models.UniqueConstraint(fields=["created_by", "name"], condition=models.Q(created_by__isnull=False), name="nombre_unico_por_usuario_alimentos"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class MealEntry(models.Model):
+    """Una ración de un alimento concreto, en una comida concreta de un
+    día concreto -- las calorías/macros se calculan al vuelo a partir de
+    `quantity_g` (no se guardan aparte, así si se corrige el alimento del
+    catálogo el historial ya registrado no queda con datos viejos)."""
+
+    class MealType(models.TextChoices):
+        BREAKFAST = "breakfast", "Desayuno"
+        LUNCH = "lunch", "Comida"
+        DINNER = "dinner", "Cena"
+        SNACK = "snack", "Snack"
+
+    user = models.ForeignKey(User, verbose_name="usuario", on_delete=models.CASCADE, related_name="meal_entries")
+    food = models.ForeignKey(Food, verbose_name="alimento", on_delete=models.PROTECT, related_name="meal_entries")
+    date = models.DateField("fecha", default=timezone.localdate)
+    meal_type = models.CharField("comida", max_length=10, choices=MealType.choices, default=MealType.LUNCH)
+    quantity_g = models.PositiveSmallIntegerField("cantidad (g)")
+    created_at = models.DateTimeField("creado", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "entrada de comida"
+        verbose_name_plural = "entradas de comida"
+        ordering = ["date", "meal_type", "created_at"]
+
+    def __str__(self):
+        return f"{self.food.name} ({self.quantity_g}g) — {self.get_meal_type_display()} {self.date}"
+
+    def _scaled(self, per_100g):
+        return per_100g * self.quantity_g / 100
+
+    @property
+    def calories(self):
+        return round(self._scaled(self.food.calories_per_100g))
+
+    @property
+    def protein_g(self):
+        return round(self._scaled(self.food.protein_per_100g), 1)
+
+    @property
+    def carbs_g(self):
+        return round(self._scaled(self.food.carbs_per_100g), 1)
+
+    @property
+    def fat_g(self):
+        return round(self._scaled(self.food.fat_per_100g), 1)
+
+
+class NutritionGoal(models.Model):
+    """Objetivo diario de calorías/macros -- uno por usuario (no uno por
+    fecha: se compara cada día contra el mismo objetivo hasta que se
+    cambie a mano)."""
+
+    user = models.OneToOneField(User, verbose_name="usuario", on_delete=models.CASCADE, related_name="nutrition_goal")
+    daily_calories = models.PositiveSmallIntegerField("kcal/día objetivo", null=True, blank=True)
+    daily_protein_g = models.PositiveSmallIntegerField("proteína (g)/día objetivo", null=True, blank=True)
+    daily_carbs_g = models.PositiveSmallIntegerField("carbohidratos (g)/día objetivo", null=True, blank=True)
+    daily_fat_g = models.PositiveSmallIntegerField("grasa (g)/día objetivo", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "objetivo nutricional"
+        verbose_name_plural = "objetivos nutricionales"
+
+    def __str__(self):
+        return f"Objetivo de {self.user}"

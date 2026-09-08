@@ -8,8 +8,11 @@ from django.urls import reverse
 from .models import (
     BodyWeightEntry,
     Exercise,
+    Food,
     Goal,
+    MealEntry,
     MuscleGroup,
+    NutritionGoal,
     PersonalRecord,
     Routine,
     RoutineDay,
@@ -484,6 +487,42 @@ class AnalyticsTests(TonnageTestCase):
         self.assertEqual(labels[0], "Press banca")
         self.assertEqual(values[0], 2)
 
+    def test_tabla_dinamica_por_defecto_es_por_ejercicio_y_volumen(self):
+        workout = self._completed_workout()
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"))
+        self.assertEqual(response.context["pivot_group"], "exercise")
+        self.assertEqual(response.context["pivot_metric"], "volume")
+        rows = response.context["pivot_rows"]
+        self.assertEqual(rows[0]["name"], "Press banca")
+        self.assertEqual(rows[0]["total"], 800)
+
+    def test_tabla_dinamica_por_grupo_muscular_agrupa_ejercicios(self):
+        squat = Exercise.objects.create(name="Sentadilla", primary_muscle=self.chest, equipment="barbell")
+        workout = self._completed_workout()
+        we1 = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we1, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+        we2 = WorkoutExercise.objects.create(workout=workout, exercise=squat)
+        SetEntry.objects.create(workout_exercise=we2, set_number=1, weight_kg=Decimal("50"), reps_performed=10)
+
+        response = self.client.get(reverse("training:analytics"), {"pivot_group": "muscle"})
+        rows = response.context["pivot_rows"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "Pecho")
+        self.assertEqual(rows[0]["total"], 1000)
+
+    def test_tabla_dinamica_con_metrica_series_cuenta_series_no_kg(self):
+        workout = self._completed_workout()
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("80"), reps_performed=10)
+        SetEntry.objects.create(workout_exercise=we, set_number=2, weight_kg=Decimal("80"), reps_performed=8)
+
+        response = self.client.get(reverse("training:analytics"), {"pivot_metric": "sets"})
+        rows = response.context["pivot_rows"]
+        self.assertEqual(rows[0]["total"], 2)
+
     def test_pagina_requiere_login(self):
         self.client.logout()
         response = self.client.get(reverse("training:analytics"))
@@ -674,4 +713,75 @@ class HeadToHeadTests(TonnageTestCase):
     def test_pagina_requiere_login(self):
         self.client.logout()
         response = self.client.get(reverse("training:head-to-head"))
+        self.assertNotEqual(response.status_code, 200)
+
+
+class NutritionTests(TonnageTestCase):
+    """training:nutrition-diary -- registro de comidas, macros calculados
+    a partir de la ración (ver Food/MealEntry en training/models.py)."""
+
+    def setUp(self):
+        super().setUp()
+        self.chicken = Food.objects.create(
+            name="Pechuga de pollo", calories_per_100g=165,
+            protein_per_100g=Decimal("31"), carbs_per_100g=Decimal("0"), fat_per_100g=Decimal("3.6"),
+        )
+
+    def test_registrar_comida_calcula_calorias_por_racion(self):
+        entry = MealEntry.objects.create(user=self.user, food=self.chicken, quantity_g=200, meal_type="lunch")
+        self.assertEqual(entry.calories, 330)
+        self.assertEqual(entry.protein_g, Decimal("62.0"))
+
+    def test_diario_agrupa_por_tipo_de_comida_y_suma_totales(self):
+        MealEntry.objects.create(user=self.user, food=self.chicken, quantity_g=100, meal_type="breakfast")
+        MealEntry.objects.create(user=self.user, food=self.chicken, quantity_g=200, meal_type="lunch")
+
+        response = self.client.get(reverse("training:nutrition-diary"))
+        self.assertEqual(response.context["totals"]["calories"], 165 + 330)
+        groups = {g["value"]: g["entries"] for g in response.context["meal_groups"]}
+        self.assertEqual(len(groups["breakfast"]), 1)
+        self.assertEqual(len(groups["lunch"]), 1)
+        self.assertEqual(len(groups["dinner"]), 0)
+
+    def test_diario_solo_ensena_las_comidas_del_usuario(self):
+        other = User.objects.create_user(username="rival", password="pass12345")
+        MealEntry.objects.create(user=other, food=self.chicken, quantity_g=100, meal_type="lunch")
+
+        response = self.client.get(reverse("training:nutrition-diary"))
+        self.assertEqual(response.context["totals"]["calories"], 0)
+
+    def test_anadir_comida_via_formulario(self):
+        from django.utils import timezone
+
+        self.client.post(reverse("training:meal-entry-add"), {
+            "food": self.chicken.pk, "meal_type": "dinner", "quantity_g": 150,
+            "date": timezone.localdate().isoformat(),
+        })
+        self.assertTrue(MealEntry.objects.filter(user=self.user, food=self.chicken, quantity_g=150).exists())
+
+    def test_borrar_comida_de_otro_usuario_da_404(self):
+        other = User.objects.create_user(username="rival", password="pass12345")
+        entry = MealEntry.objects.create(user=other, food=self.chicken, quantity_g=100, meal_type="lunch")
+        response = self.client.post(reverse("training:meal-entry-delete", args=[entry.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_catalogo_de_alimentos_crea_uno_nuevo(self):
+        self.client.post(reverse("training:food-list"), {
+            "name": "Arroz blanco", "calories_per_100g": 130,
+            "protein_per_100g": "2.7", "carbs_per_100g": "28", "fat_per_100g": "0.3",
+        })
+        self.assertTrue(Food.objects.filter(name="Arroz blanco", created_by=self.user).exists())
+
+    def test_objetivo_nutricional_se_guarda_y_se_ve_en_el_diario(self):
+        self.client.post(reverse("training:nutrition-goal-edit"), {
+            "daily_calories": 2200, "daily_protein_g": 160, "daily_carbs_g": 220, "daily_fat_g": 70,
+        })
+        self.assertTrue(NutritionGoal.objects.filter(user=self.user, daily_calories=2200).exists())
+
+        response = self.client.get(reverse("training:nutrition-diary"))
+        self.assertEqual(response.context["goal"].daily_calories, 2200)
+
+    def test_pagina_requiere_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("training:nutrition-diary"))
         self.assertNotEqual(response.status_code, 200)

@@ -1,0 +1,31 @@
+{% comment %}
+Buscador de alimento reutilizable -- mismo Alpine.data('exercisePicker')
+que el buscador de ejercicio (misma lógica de filtrar/seleccionar, solo
+cambia qué subtítulo se enseña). Contexto esperado: foods_json,
+field_name, selected_id/selected_label opcionales, placeholder opcional.
+{% endcomment %}
+<div x-data="exercisePicker({{ foods_json }}, '{{ selected_id|default:"" }}', '{{ selected_label|default:""|escapejs }}')"
+     class="relative" @click.outside="open = false">
+    <input type="hidden" name="{{ field_name }}" :value="selectedId" required>
+    <input type="text" x-model="query" @focus="open = true" @input="onInput()"
+           @keydown.down.prevent="highlighted = Math.min(highlighted + 1, filtered.length - 1)"
+           @keydown.up.prevent="highlighted = Math.max(highlighted - 1, 0)"
+           @keydown.enter.prevent="onEnter()"
+           @keydown.escape="open = false"
+           placeholder="{{ placeholder|default:'Buscar alimento...' }}" autocomplete="off">
+    <div x-show="open && filtered.length" x-cloak
+         class="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-line bg-surface-raised shadow-xl">
+        <template x-for="(f, idx) in filtered" :key="f.id">
+            <button type="button" @click="select(f)" @mouseenter="highlighted = idx"
+                    class="block w-full text-left px-3 py-2 text-sm"
+                    :class="idx === highlighted ? 'bg-accent/15 text-accent' : 'text-ink-secondary'">
+                <span x-text="f.name"></span>
+                <span class="text-ink-muted text-xs" x-text="' · ' + f.kcal + ' kcal/100g'"></span>
+            </button>
+        </template>
+    </div>
+    <div x-show="open && query && !filtered.length" x-cloak
+         class="absolute z-30 mt-1 w-full rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-ink-muted shadow-xl">
+        Sin resultados para «<span x-text="query"></span>». <a href="{% url 'training:food-list' %}" class="text-accent">Añádelo al catálogo →</a>
+    </div>
+</div>

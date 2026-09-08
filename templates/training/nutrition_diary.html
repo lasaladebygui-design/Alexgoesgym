@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Nutrición · Tonnage{% endblock %}
+{% block content %}
+<div class="space-y-8">
+
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <h1 class="font-display text-2xl font-bold text-ink-primary">🍽️ Nutrición</h1>
+            <p class="text-sm text-ink-muted mt-1">Qué has comido hoy, comida a comida.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="btn-ghost text-sm">← {{ prev_date|date:"d/m" }}</a>
+            <span class="text-sm font-medium text-ink-primary px-2">{% if is_today %}Hoy{% else %}{{ date|date:"d/m/Y" }}{% endif %}</span>
+            <a href="?date={{ next_date|date:'Y-m-d' }}" class="btn-ghost text-sm">{{ next_date|date:"d/m" }} →</a>
+            <a href="{% url 'training:food-list' %}" class="btn-ghost text-sm">Alimentos</a>
+        </div>
+    </div>
+
+    <!-- Totales del día -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card-tile">
+            <p class="tile-label">Calorías</p>
+            <p class="tile-value font-mono">{{ totals.calories|intcomma }}{% if goal.daily_calories %}<span class="text-sm text-ink-muted"> / {{ goal.daily_calories|intcomma }}</span>{% endif %}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Proteína</p>
+            <p class="tile-value font-mono">{{ totals.protein_g|floatformat:0 }}g{% if goal.daily_protein_g %}<span class="text-sm text-ink-muted"> / {{ goal.daily_protein_g }}g</span>{% endif %}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Carbohidratos</p>
+            <p class="tile-value font-mono">{{ totals.carbs_g|floatformat:0 }}g{% if goal.daily_carbs_g %}<span class="text-sm text-ink-muted"> / {{ goal.daily_carbs_g }}g</span>{% endif %}</p>
+        </div>
+        <div class="card-tile">
+            <p class="tile-label">Grasa</p>
+            <p class="tile-value font-mono">{{ totals.fat_g|floatformat:0 }}g{% if goal.daily_fat_g %}<span class="text-sm text-ink-muted"> / {{ goal.daily_fat_g }}g</span>{% endif %}</p>
+        </div>
+    </div>
+
+    {% if not goal.daily_calories %}
+    <p class="text-xs text-ink-muted">¿Quieres comparar contra un objetivo diario? <a href="{% url 'training:nutrition-goal-edit' %}" class="text-accent">Ponlo aquí</a>.</p>
+    {% endif %}
+
+    <!-- Añadir comida -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-3">Registrar comida</h2>
+        <form method="post" action="{% url 'training:meal-entry-add' %}" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            {% csrf_token %}
+            <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Alimento</label>
+                {% include "training/_food_picker.html" with field_name="food" foods_json=foods_json %}
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Comida</label>
+                <select name="meal_type">
+                    {% for value, label in meal_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-ink-secondary mb-1.5">Cantidad (g)</label>
+                <input type="number" name="quantity_g" min="1" required>
+            </div>
+            <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+            <button type="submit" class="btn-primary md:col-span-4">+ Añadir</button>
+        </form>
+    </div>
+
+    <!-- Comidas del día -->
+    {% for group in meal_groups %}
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-3">{{ group.label }}</h2>
+        {% if group.entries %}
+        <ul class="space-y-2">
+            {% for entry in group.entries %}
+            <li class="flex items-center justify-between text-sm border-b border-line pb-2 last:border-0 last:pb-0">
+                <div>
+                    <span class="text-ink-primary">{{ entry.food.name }}</span>
+                    <span class="text-ink-muted"> · {{ entry.quantity_g }}g</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="font-mono text-ink-secondary">{{ entry.calories }} kcal</span>
+                    <form method="post" action="{% url 'training:meal-entry-delete' pk=entry.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-danger">Borrar</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-ink-muted">Nada registrado todavía.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

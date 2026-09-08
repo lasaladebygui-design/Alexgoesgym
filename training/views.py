@@ -5,11 +5,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from .forms import (
     BodyWeightEntryForm,
+    FoodForm,
     GoalForm,
+    MealEntryForm,
+    NutritionGoalForm,
     RoutineDayForm,
     RoutineExerciseForm,
     RoutineForm,
@@ -22,7 +26,10 @@ from .forms import (
 from .models import (
     BodyWeightEntry,
     Exercise,
+    Food,
     Goal,
+    MealEntry,
+    NutritionGoal,
     PersonalRecord,
     Routine,
     RoutineDay,
@@ -31,7 +38,13 @@ from .models import (
     Workout,
     WorkoutExercise,
 )
-from .services import exercises_picker_data, recent_exercises, strength_progression
+from .services import (
+    daily_nutrition,
+    exercises_picker_data,
+    foods_picker_data,
+    recent_exercises,
+    strength_progression,
+)
 
 
 # --- Registro de entrenamiento (la función principal) -----------------------
@@ -442,7 +455,15 @@ def analytics(request):
     total_volume_labels, total_volume_values = services.total_volume_by_week(user, weeks=12)
     exercise_freq = services.exercise_frequency(user, weeks=8)
 
+    pivot_group = request.GET.get("pivot_group") if request.GET.get("pivot_group") in ("exercise", "muscle") else "exercise"
+    pivot_metric = request.GET.get("pivot_metric") if request.GET.get("pivot_metric") in ("volume", "sets") else "volume"
+    pivot_weeks_labels, pivot_rows = services.pivot_table(user, group_by=pivot_group, metric=pivot_metric, weeks=8)
+
     context = {
+        "pivot_group": pivot_group,
+        "pivot_metric": pivot_metric,
+        "pivot_weeks_labels": pivot_weeks_labels,
+        "pivot_rows": pivot_rows,
         "total_volume_labels": total_volume_labels,
         "total_volume_values": [float(v) for v in total_volume_values],
         "has_total_volume_data": any(v > 0 for v in total_volume_values),
@@ -582,3 +603,95 @@ def goal_delete(request, pk):
     if request.method == "POST":
         goal.delete()
     return redirect("training:goal-list")
+
+
+# --- Nutrición --------------------------------------------------------
+
+@login_required
+def nutrition_diary(request):
+    from datetime import date as date_cls, timedelta
+
+    date_str = request.GET.get("date")
+    try:
+        date = date_cls.fromisoformat(date_str) if date_str else timezone.localdate()
+    except ValueError:
+        date = timezone.localdate()
+
+    summary = daily_nutrition(request.user, date)
+    meal_groups = [
+        {"value": value, "label": label, "entries": summary["by_type"][value]}
+        for value, label in MealEntry.MealType.choices
+    ]
+
+    return render(request, "training/nutrition_diary.html", {
+        "date": date,
+        "prev_date": date - timedelta(days=1),
+        "next_date": date + timedelta(days=1),
+        "is_today": date == timezone.localdate(),
+        "meal_groups": meal_groups,
+        "totals": summary["totals"],
+        "goal": summary["goal"],
+        "meal_types": MealEntry.MealType.choices,
+        "foods_json": json.dumps(foods_picker_data(request.user)),
+    })
+
+
+@login_required
+def meal_entry_add(request):
+    if request.method == "POST":
+        form = MealEntryForm(request.POST, user=request.user)
+        if form.is_valid():
+            MealEntry.objects.create(
+                user=request.user,
+                food=form.cleaned_data["food"],
+                meal_type=form.cleaned_data["meal_type"],
+                quantity_g=form.cleaned_data["quantity_g"],
+                date=form.cleaned_data["date"],
+            )
+            messages.success(request, "Comida registrada.")
+            return redirect(f"{reverse('training:nutrition-diary')}?date={form.cleaned_data['date'].isoformat()}")
+        messages.error(request, "Revisa el formulario.")
+    return redirect("training:nutrition-diary")
+
+
+@login_required
+def meal_entry_delete(request, pk):
+    entry = get_object_or_404(MealEntry, pk=pk, user=request.user)
+    date = entry.date
+    if request.method == "POST":
+        entry.delete()
+    return redirect(f"{reverse('training:nutrition-diary')}?date={date.isoformat()}")
+
+
+@login_required
+def food_list(request):
+    from django.db.models import Q
+
+    foods = Food.objects.filter(Q(created_by__isnull=True) | Q(created_by=request.user)).order_by("name")
+
+    if request.method == "POST":
+        form = FoodForm(request.POST)
+        if form.is_valid():
+            food = form.save(commit=False)
+            food.created_by = request.user
+            food.save()
+            messages.success(request, f"«{food.name}» añadido al catálogo.")
+            return redirect("training:food-list")
+    else:
+        form = FoodForm()
+
+    return render(request, "training/food_list.html", {"foods": foods, "form": form})
+
+
+@login_required
+def nutrition_goal_edit(request):
+    goal, _ = NutritionGoal.objects.get_or_create(user=request.user)
+    if request.method == "POST":
+        form = NutritionGoalForm(request.POST, instance=goal)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Objetivo nutricional actualizado.")
+            return redirect("training:nutrition-diary")
+    else:
+        form = NutritionGoalForm(instance=goal)
+    return render(request, "training/nutrition_goal_edit.html", {"form": form})

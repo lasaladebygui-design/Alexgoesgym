@@ -378,6 +378,54 @@ def exercise_frequency(user, weeks=8, limit=8):
     return [(r["workout_exercise__exercise__name"], r["n"]) for r in rows]
 
 
+def pivot_table(user, group_by="exercise", metric="volume", weeks=8):
+    """Tabla dinámica de Analíticas: filas = ejercicio o grupo muscular
+    (a elegir), columnas = semanas, celda = volumen o nº de series (a
+    elegir) -- a diferencia de los gráficos de arriba (una vista fija
+    cada uno), esta es la misma info pero reconfigurable según qué se
+    quiera comparar."""
+    from django.db.models import Count, F
+
+    today = timezone.localdate()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    group_field = (
+        "workout_exercise__exercise__name" if group_by == "exercise"
+        else "workout_exercise__exercise__primary_muscle__name"
+    )
+
+    qs = SetEntry.objects.filter(
+        workout_exercise__workout__user=user,
+        workout_exercise__workout__date__gte=first_monday,
+        completed=True,
+    )
+    if metric == "volume":
+        qs = qs.filter(weight_kg__isnull=False, reps_performed__isnull=False)
+        rows = qs.values(group_field, "workout_exercise__workout__date").annotate(
+            value=Sum(F("weight_kg") * F("reps_performed"))
+        )
+    else:
+        rows = qs.values(group_field, "workout_exercise__workout__date").annotate(value=Count("id"))
+
+    buckets = {}
+    for r in rows:
+        name = r[group_field]
+        week_index = (r["workout_exercise__workout__date"] - first_monday).days // 7
+        if not (0 <= week_index < weeks):
+            continue
+        buckets.setdefault(name, [0] * weeks)
+        buckets[name][week_index] += r["value"]
+
+    week_labels = [(first_monday + timedelta(weeks=i)).strftime("%d/%m") for i in range(weeks)]
+    table_rows = [
+        {"name": name, "values": values, "total": sum(values)}
+        for name, values in buckets.items()
+    ]
+    table_rows.sort(key=lambda row: row["total"], reverse=True)
+    return week_labels, table_rows
+
+
 def muscle_balance(user, days=30):
     """Qué parte del volumen de los últimos `days` días se ha ido a cada
     grupo muscular -- para ver de un vistazo si el reparto está
@@ -722,3 +770,50 @@ def head_to_head_rows(user, opponent):
 
     rows.sort(key=lambda row: row["exercise"].name)
     return rows
+
+
+# --- Nutrición (training:nutrition-diary) -----------------------------
+
+def foods_picker_data(user):
+    """Mismo formato que exercises_picker_data (id/nombre/búsqueda ya sin
+    tildes) para reutilizar el mismo buscador-al-teclear del ejercicio,
+    esta vez con los alimentos."""
+    import unicodedata
+
+    from django.db.models import Q
+
+    from .models import Food
+
+    def normalize(text):
+        stripped = unicodedata.normalize("NFKD", text)
+        return "".join(ch for ch in stripped if not unicodedata.combining(ch)).lower()
+
+    foods = Food.objects.filter(Q(created_by__isnull=True) | Q(created_by=user)).order_by("name")
+    return [
+        {"id": f.pk, "name": f.name, "kcal": f.calories_per_100g, "search": normalize(f.name)}
+        for f in foods
+    ]
+
+
+def daily_nutrition(user, date):
+    """Comidas de `date`, agrupadas por tipo, con el total del día y el
+    progreso contra el objetivo (si hay uno puesto) -- ver NutritionGoal."""
+    from .models import MealEntry, NutritionGoal
+
+    entries = (
+        MealEntry.objects.filter(user=user, date=date)
+        .select_related("food")
+        .order_by("meal_type", "created_at")
+    )
+
+    by_type = {kind: [] for kind, _ in MealEntry.MealType.choices}
+    totals = {"calories": 0, "protein_g": Decimal("0"), "carbs_g": Decimal("0"), "fat_g": Decimal("0")}
+    for entry in entries:
+        by_type[entry.meal_type].append(entry)
+        totals["calories"] += entry.calories
+        totals["protein_g"] += Decimal(str(entry.protein_g))
+        totals["carbs_g"] += Decimal(str(entry.carbs_g))
+        totals["fat_g"] += Decimal(str(entry.fat_g))
+
+    goal = NutritionGoal.objects.filter(user=user).first()
+    return {"by_type": by_type, "totals": totals, "goal": goal}

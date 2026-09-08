@@ -4,7 +4,10 @@ from django.db.models import Q
 from .models import (
     BodyWeightEntry,
     Exercise,
+    Food,
     Goal,
+    MealEntry,
+    NutritionGoal,
     Routine,
     RoutineDay,
     RoutineExercise,
@@ -148,3 +151,30 @@ class GoalForm(forms.ModelForm):
         self.fields["exercise"].queryset = Exercise.objects.filter(visible_exercises_q(user)).order_by("name")
         self.fields["exercise"].required = False
         self.fields["exercise"].empty_label = "Ninguno en particular"
+
+
+def visible_foods_q(user):
+    return Q(created_by__isnull=True) | Q(created_by=user)
+
+
+class FoodForm(forms.ModelForm):
+    class Meta:
+        model = Food
+        fields = ["name", "calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g"]
+
+
+class MealEntryForm(forms.Form):
+    food = forms.ModelChoiceField(label="Alimento", queryset=Food.objects.none(), empty_label="Elige un alimento...")
+    meal_type = forms.ChoiceField(label="Comida", choices=MealEntry.MealType.choices)
+    quantity_g = forms.IntegerField(label="Cantidad (g)", min_value=1)
+    date = forms.DateField(label="Fecha", widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["food"].queryset = Food.objects.filter(visible_foods_q(user)).order_by("name")
+
+
+class NutritionGoalForm(forms.ModelForm):
+    class Meta:
+        model = NutritionGoal
+        fields = ["daily_calories", "daily_protein_g", "daily_carbs_g", "daily_fat_g"]

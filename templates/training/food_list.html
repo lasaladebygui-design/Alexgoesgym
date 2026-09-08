@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Alimentos · Tonnage{% endblock %}
+{% block content %}
+<div class="space-y-8 max-w-2xl">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">Catálogo de alimentos</h1>
+        <p class="text-sm text-ink-muted mt-1">Macros por 100g -- se calcula solo la ración cuando lo registras en <a href="{% url 'training:nutrition-diary' %}" class="text-accent">Nutrición</a>.</p>
+    </div>
+
+    <form method="post" class="card-panel space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+        <div>
+            <label class="block text-xs font-medium text-ink-secondary mb-1.5">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<p class="text-xs text-critical mt-1">{{ error }}</p>{% endfor %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn-primary w-full">+ Añadir alimento</button>
+    </form>
+
+    <div class="card-panel">
+        <h2 class="font-display text-sm font-semibold text-ink-muted uppercase tracking-wide mb-3">Catálogo ({{ foods|length }})</h2>
+        {% if foods %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-ink-muted border-b border-line">
+                        <th class="py-2 pr-4 font-medium">Nombre</th>
+                        <th class="py-2 px-2 font-medium text-right">kcal</th>
+                        <th class="py-2 px-2 font-medium text-right">Prot.</th>
+                        <th class="py-2 px-2 font-medium text-right">Carb.</th>
+                        <th class="py-2 pl-2 font-medium text-right">Grasa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for food in foods %}
+                    <tr class="border-b border-line last:border-0">
+                        <td class="py-2 pr-4 text-ink-primary">{{ food.name }}</td>
+                        <td class="py-2 px-2 text-right font-mono text-ink-secondary">{{ food.calories_per_100g }}</td>
+                        <td class="py-2 px-2 text-right font-mono text-ink-secondary">{{ food.protein_per_100g }}g</td>
+                        <td class="py-2 px-2 text-right font-mono text-ink-secondary">{{ food.carbs_per_100g }}g</td>
+                        <td class="py-2 pl-2 text-right font-mono text-ink-secondary">{{ food.fat_per_100g }}g</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-ink-muted">Todavía no hay alimentos en el catálogo.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

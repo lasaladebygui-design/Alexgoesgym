@@ -43,4 +43,10 @@ urlpatterns = [
     path("objetivos/nuevo/", views.goal_create, name="goal-create"),
     path("objetivos/<int:pk>/toggle/", views.goal_toggle, name="goal-toggle"),
     path("objetivos/<int:pk>/borrar/", views.goal_delete, name="goal-delete"),
+
+    path("nutricion/", views.nutrition_diary, name="nutrition-diary"),
+    path("nutricion/anadir/", views.meal_entry_add, name="meal-entry-add"),
+    path("nutricion/<int:pk>/borrar/", views.meal_entry_delete, name="meal-entry-delete"),
+    path("nutricion/alimentos/", views.food_list, name="food-list"),
+    path("nutricion/objetivo/", views.nutrition_goal_edit, name="nutrition-goal-edit"),
 ]
