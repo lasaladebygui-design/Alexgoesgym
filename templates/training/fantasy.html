@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Fantasy · Tonnage{% endblock %}
+{% block content %}
+<div class="space-y-8">
+
+    <div>
+        <h1 class="font-display text-2xl font-bold text-ink-primary">🗡️ Fantasy</h1>
+        <p class="text-sm text-ink-muted mt-1">Cumple misiones reales, sube de nivel.</p>
+    </div>
+
+    <!-- Ficha de personaje -->
+    <div class="rounded-2xl bg-gradient-to-br from-accent/20 via-surface-raised to-surface-raised border border-line p-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-3">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-accent">Nivel {{ level }}</p>
+                <p class="font-display text-2xl font-bold text-ink-primary">{{ title }}</p>
+            </div>
+            <p class="font-mono text-sm text-ink-secondary">{{ total_xp|intcomma }} XP total</p>
+        </div>
+        <div class="w-full h-3 rounded-full bg-surface overflow-hidden">
+            <div class="h-full bg-accent" style="width: {{ xp_into_level }}%"></div>
+        </div>
+        <p class="text-xs text-ink-muted mt-1.5">{{ xp_into_level }} / {{ xp_for_next_level }} XP para el nivel {{ level|add:1 }}</p>
+    </div>
+
+    <!-- Misiones semanales -->
+    <div>
+        <h2 class="font-display text-lg font-semibold text-ink-primary mb-3">Misiones de esta semana</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for quest in quests %}
+            {% if quest.weekly %}
+            <div class="card-panel flex items-start justify-between gap-3 {% if quest.done %}border-accent/40{% endif %}">
+                <div>
+                    <p class="text-sm font-semibold {% if quest.done %}text-accent{% else %}text-ink-primary{% endif %}">{% if quest.done %}✅{% else %}⬜{% endif %} {{ quest.title }}</p>
+                    <p class="text-xs text-ink-muted mt-0.5">{{ quest.description }}</p>
+                </div>
+                <span class="font-mono text-xs text-ink-secondary whitespace-nowrap">+{{ quest.points }} XP</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Logros de una sola vez -->
+    <div>
+        <h2 class="font-display text-lg font-semibold text-ink-primary mb-3">Logros</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for quest in quests %}
+            {% if not quest.weekly %}
+            <div class="card-panel flex items-start justify-between gap-3 {% if quest.done %}border-accent/40{% endif %}">
+                <div>
+                    <p class="text-sm font-semibold {% if quest.done %}text-accent{% else %}text-ink-primary{% endif %}">{% if quest.done %}🏆{% else %}🔒{% endif %} {{ quest.title }}</p>
+                    <p class="text-xs text-ink-muted mt-0.5">{{ quest.description }}</p>
+                </div>
+                <span class="font-mono text-xs text-ink-secondary whitespace-nowrap">+{{ quest.points }} XP</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Ranking por nivel -->
+    <div class="card-panel">
+        <h2 class="font-display text-lg font-semibold mb-1">Ranking</h2>
+        <p class="text-xs text-ink-muted mb-4">Por XP total -- todo el mundo con cuenta.</p>
+        {% if leaderboard %}
+        <ol class="space-y-1">
+            {% for row in leaderboard %}
+            <li class="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg {% if row.is_you %}bg-accent/10 border border-accent/30{% endif %}">
+                <span class="flex items-center gap-2">
+                    <span class="w-5 text-ink-muted font-mono">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{ row.rank }}{% endif %}</span>
+                    <span class="{% if row.is_you %}text-accent font-semibold{% else %}text-ink-primary{% endif %}">{{ row.username }}{% if row.is_you %} (tú){% endif %}</span>
+                </span>
+                <span class="font-mono text-ink-primary">{{ row.xp|intcomma }} XP</span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p class="text-sm text-ink-muted">Nadie ha cumplido ninguna misión todavía.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

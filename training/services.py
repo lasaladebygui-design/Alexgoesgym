@@ -817,3 +817,70 @@ def daily_nutrition(user, date):
 
     goal = NutritionGoal.objects.filter(user=user).first()
     return {"by_type": by_type, "totals": totals, "goal": goal}
+
+
+# --- Fantasy (training:fantasy) ----------------------------------------
+
+XP_PER_LEVEL = 100
+
+TITLE_TIERS = [
+    (1, "Novato"),
+    (3, "Aprendiz"),
+    (5, "Guerrero"),
+    (8, "Campeón"),
+    (11, "Leyenda"),
+]
+
+
+def _title_for_level(level):
+    title = TITLE_TIERS[0][1]
+    for min_level, name in TITLE_TIERS:
+        if level >= min_level:
+            title = name
+    return title
+
+
+def fantasy_summary(user):
+    """Nivel/XP/título de `user` (misiones ya conseguidas, ver
+    training/quests.py) más la lista completa de misiones con si ya
+    están hechas esta semana/para siempre -- todo lo que pinta la
+    página de Fantasy."""
+    from .models import QuestCompletion
+    from .quests import ONE_TIME_SENTINEL, QUESTS, _week_start
+
+    completions = QuestCompletion.objects.filter(user=user)
+    total_xp = sum(c.points for c in completions)
+    done = {(c.quest_code, c.period_start) for c in completions}
+
+    level = 1 + total_xp // XP_PER_LEVEL
+    xp_into_level = total_xp % XP_PER_LEVEL
+    title = _title_for_level(level)
+
+    this_week = _week_start()
+    quest_rows = []
+    for code, quest_title, description, points, weekly, _check in QUESTS:
+        period = this_week if weekly else ONE_TIME_SENTINEL
+        quest_rows.append({
+            "code": code, "title": quest_title, "description": description, "points": points,
+            "weekly": weekly, "done": (code, period) in done,
+        })
+
+    return {
+        "total_xp": total_xp, "level": level, "title": title,
+        "xp_into_level": xp_into_level, "xp_for_next_level": XP_PER_LEVEL,
+        "quests": quest_rows,
+    }
+
+
+def fantasy_leaderboard():
+    """Ranking por nivel (XP total) de todo el mundo con cuenta -- mismo
+    espíritu que Competición/Liga, sin filtro de amigos para no
+    complicarlo más."""
+    from django.contrib.auth import get_user_model
+
+    from .models import QuestCompletion
+
+    User = get_user_model()
+    rows = QuestCompletion.objects.values("user__username").annotate(xp=Sum("points")).order_by("-xp")
+    ranked = [(r["user__username"], r["xp"]) for r in rows if r["xp"]]
+    return ranked

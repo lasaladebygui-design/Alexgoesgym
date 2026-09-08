@@ -41,6 +41,8 @@ from .models import (
 from .services import (
     daily_nutrition,
     exercises_picker_data,
+    fantasy_leaderboard,
+    fantasy_summary,
     foods_picker_data,
     recent_exercises,
     strength_progression,
@@ -695,3 +697,23 @@ def nutrition_goal_edit(request):
     else:
         form = NutritionGoalForm(instance=goal)
     return render(request, "training/nutrition_goal_edit.html", {"form": form})
+
+
+# --- Fantasy ------------------------------------------------------------
+
+@login_required
+def fantasy(request):
+    from .quests import sync_quests
+
+    newly_completed = sync_quests(request.user)
+    for _code, title, points in newly_completed:
+        messages.success(request, f"¡Misión cumplida! «{title}» (+{points} XP)")
+
+    summary = fantasy_summary(request.user)
+    leaderboard = fantasy_leaderboard()
+    ranked = [
+        {"rank": i + 1, "username": username, "xp": xp, "is_you": username == request.user.username}
+        for i, (username, xp) in enumerate(leaderboard)
+    ]
+
+    return render(request, "training/fantasy.html", {**summary, "leaderboard": ranked})

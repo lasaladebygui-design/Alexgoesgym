@@ -49,4 +49,6 @@ urlpatterns = [
     path("nutricion/<int:pk>/borrar/", views.meal_entry_delete, name="meal-entry-delete"),
     path("nutricion/alimentos/", views.food_list, name="food-list"),
     path("nutricion/objetivo/", views.nutrition_goal_edit, name="nutrition-goal-edit"),
+
+    path("fantasy/", views.fantasy, name="fantasy"),
 ]

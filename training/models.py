@@ -489,3 +489,29 @@ class NutritionGoal(models.Model):
 
     def __str__(self):
         return f"Objetivo de {self.user}"
+
+
+# --- Fantasy: misiones que dan XP y suben de nivel --------------------
+# `period_start` es real siempre (nunca None) -- para las misiones de
+# una sola vez se usa una fecha centinela fija (ver training/quests.py),
+# así el UniqueConstraint evita duplicados en los dos casos por igual
+# (NULL != NULL en SQL habría dejado colarse varias veces la misma
+# misión de una sola vez).
+
+class QuestCompletion(models.Model):
+    user = models.ForeignKey(User, verbose_name="usuario", on_delete=models.CASCADE, related_name="quest_completions")
+    quest_code = models.CharField("misión", max_length=40)
+    period_start = models.DateField("periodo")
+    points = models.PositiveIntegerField("XP")
+    completed_at = models.DateTimeField("conseguida", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "misión completada"
+        verbose_name_plural = "misiones completadas"
+        ordering = ["-completed_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "quest_code", "period_start"], name="una_vez_por_usuario_mision_y_periodo"),
+        ]
+
+    def __str__(self):
+        return f"{self.user} · {self.quest_code} ({self.period_start})"

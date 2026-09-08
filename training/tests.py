@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -14,6 +15,7 @@ from .models import (
     MuscleGroup,
     NutritionGoal,
     PersonalRecord,
+    QuestCompletion,
     Routine,
     RoutineDay,
     SetEntry,
@@ -784,4 +786,64 @@ class NutritionTests(TonnageTestCase):
     def test_pagina_requiere_login(self):
         self.client.logout()
         response = self.client.get(reverse("training:nutrition-diary"))
+        self.assertNotEqual(response.status_code, 200)
+
+
+class FantasyTests(TonnageTestCase):
+    """training:fantasy -- misiones reales que dan XP y suben de nivel
+    (ver training/quests.py)."""
+
+    def test_sin_misiones_estas_en_nivel_1(self):
+        response = self.client.get(reverse("training:fantasy"))
+        self.assertEqual(response.context["level"], 1)
+        self.assertEqual(response.context["total_xp"], 0)
+
+    def test_primer_pr_desbloquea_la_mision_de_una_sola_vez(self):
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=5)
+
+        response = self.client.get(reverse("training:fantasy"))
+        self.assertTrue(QuestCompletion.objects.filter(user=self.user, quest_code="primer_pr").exists())
+        quests_by_code = {q["code"]: q for q in response.context["quests"]}
+        self.assertTrue(quests_by_code["primer_pr"]["done"])
+
+    def test_mision_de_una_sola_vez_no_se_duplica_al_volver_a_entrar(self):
+        workout = Workout.objects.create(user=self.user, name="Test", start_time=Workout.start_time.field.default())
+        we = WorkoutExercise.objects.create(workout=workout, exercise=self.bench)
+        SetEntry.objects.create(workout_exercise=we, set_number=1, weight_kg=Decimal("100"), reps_performed=5)
+
+        self.client.get(reverse("training:fantasy"))
+        self.client.get(reverse("training:fantasy"))
+        self.assertEqual(QuestCompletion.objects.filter(user=self.user, quest_code="primer_pr").count(), 1)
+
+    def test_mision_semanal_constancia_se_cumple_con_tres_entrenamientos(self):
+        for _ in range(3):
+            Workout.objects.create(
+                user=self.user, name="Test", status=Workout.Status.COMPLETED,
+                start_time=Workout.start_time.field.default(),
+            )
+        response = self.client.get(reverse("training:fantasy"))
+        quests_by_code = {q["code"]: q for q in response.context["quests"]}
+        self.assertTrue(quests_by_code["constancia"]["done"])
+
+    def test_xp_total_sube_de_nivel(self):
+        QuestCompletion.objects.create(user=self.user, quest_code="primer_pr", period_start=date(2000, 1, 1), points=50)
+        QuestCompletion.objects.create(user=self.user, quest_code="diez_entrenamientos", period_start=date(2000, 1, 1), points=50)
+
+        response = self.client.get(reverse("training:fantasy"))
+        self.assertEqual(response.context["total_xp"], 100)
+        self.assertEqual(response.context["level"], 2)
+
+    def test_ranking_solo_cuenta_a_quien_ha_sumado_xp(self):
+        other = User.objects.create_user(username="rival", password="pass12345")
+        QuestCompletion.objects.create(user=other, quest_code="sociable", period_start=date(2000, 1, 1), points=20)
+
+        response = self.client.get(reverse("training:fantasy"))
+        usernames = {row["username"] for row in response.context["leaderboard"]}
+        self.assertIn("rival", usernames)
+
+    def test_pagina_requiere_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("training:fantasy"))
         self.assertNotEqual(response.status_code, 200)
