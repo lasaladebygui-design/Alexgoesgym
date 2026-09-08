@@ -107,7 +107,15 @@
 
         <!-- Reparto (30 días) -->
         <div class="card-panel">
-            <h2 class="font-display text-lg font-semibold mb-1">Reparto (30 días)</h2>
+            <div class="flex items-center justify-between gap-2 mb-1">
+                <h2 class="font-display text-lg font-semibold">Reparto (30 días)</h2>
+                {% if has_balance_data %}
+                <div id="balance-toggle" class="flex rounded-lg border border-line overflow-hidden shrink-0">
+                    <button type="button" data-chart-type="doughnut" class="px-2 py-1 text-sm bg-accent text-accent-ink">🥧</button>
+                    <button type="button" data-chart-type="bar" class="px-2 py-1 text-sm text-ink-secondary hover:bg-surface-raised">📊</button>
+                </div>
+                {% endif %}
+            </div>
             <p class="text-xs text-ink-muted mb-4">Qué parte del volumen se ha ido a cada grupo.</p>
             {% if has_balance_data %}
             <div class="h-48 mb-4"><canvas id="balance-chart"></canvas></div>
@@ -127,7 +135,15 @@
 
     <!-- Volumen total -->
     <div class="card-panel">
-        <h2 class="font-display text-lg font-semibold mb-1">Volumen total</h2>
+        <div class="flex items-center justify-between gap-2 mb-1">
+            <h2 class="font-display text-lg font-semibold">Volumen total</h2>
+            {% if has_total_volume_data %}
+            <div id="total-volume-toggle" class="flex rounded-lg border border-line overflow-hidden shrink-0">
+                <button type="button" data-chart-type="bar" class="px-2 py-1 text-sm bg-accent text-accent-ink">📊</button>
+                <button type="button" data-chart-type="line" class="px-2 py-1 text-sm text-ink-secondary hover:bg-surface-raised">📈</button>
+            </div>
+            {% endif %}
+        </div>
         <p class="text-xs text-ink-muted mb-4">Últimas 12 semanas, todos los grupos juntos — la tendencia general, de un vistazo.</p>
         {% if has_total_volume_data %}
         <div class="h-56"><canvas id="total-volume-chart"></canvas></div>
@@ -189,7 +205,15 @@
 
     <!-- Ejercicios más frecuentes -->
     <div class="card-panel">
-        <h2 class="font-display text-lg font-semibold mb-1">Ejercicios más frecuentes</h2>
+        <div class="flex items-center justify-between gap-2 mb-1">
+            <h2 class="font-display text-lg font-semibold">Ejercicios más frecuentes</h2>
+            {% if has_exercise_freq_data %}
+            <div id="exercise-freq-toggle" class="flex rounded-lg border border-line overflow-hidden shrink-0">
+                <button type="button" data-chart-type="bar" class="px-2 py-1 text-sm bg-accent text-accent-ink">📊</button>
+                <button type="button" data-chart-type="doughnut" class="px-2 py-1 text-sm text-ink-secondary hover:bg-surface-raised">🥧</button>
+            </div>
+            {% endif %}
+        </div>
         <p class="text-xs text-ink-muted mb-4">Por número de series, últimas 8 semanas — dónde se va el tiempo de verdad.</p>
         {% if has_exercise_freq_data %}
         <div class="h-64"><canvas id="exercise-freq-chart"></canvas></div>
@@ -202,6 +226,30 @@
 {% endblock %}
 
 {% block extra_body %}
+<script>
+// Cambia el `type` de un Chart.js ya montado sin perder los datos --
+// destruye la instancia y la vuelve a crear con la misma config salvo
+// por `type`/`options`, según qué botón del toggle se pulse.
+function createSwitchableChart(canvasId, toggleId, variants, defaultKey) {
+    let chart = null;
+    function render(key) {
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById(canvasId), variants[key]);
+    }
+    render(defaultKey);
+    const toggle = document.getElementById(toggleId);
+    if (!toggle) return;
+    toggle.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            toggle.querySelectorAll('button').forEach((b) => b.classList.remove('bg-accent', 'text-accent-ink'));
+            toggle.querySelectorAll('button').forEach((b) => b.classList.add('text-ink-secondary'));
+            btn.classList.add('bg-accent', 'text-accent-ink');
+            btn.classList.remove('text-ink-secondary');
+            render(btn.dataset.chartType);
+        });
+    });
+}
+</script>
 {% if has_muscle_data %}
 <script>
 const musclePalette = ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a', '#7c8cd6', '#9fb545'];
@@ -235,47 +283,56 @@ new Chart(document.getElementById('muscle-chart'), {
 {% endif %}
 {% if has_total_volume_data %}
 <script>
-new Chart(document.getElementById('total-volume-chart'), {
-    type: 'bar',
-    data: {
-        labels: {{ total_volume_labels|safe }},
-        datasets: [{
-            data: {{ total_volume_values|safe }},
-            backgroundColor: '#eb6834',
-            borderRadius: 4,
-        }],
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} kg` } },
+(function () {
+    const labels = {{ total_volume_labels|safe }};
+    const values = {{ total_volume_values|safe }};
+    const tooltip = { callbacks: { label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} kg` } };
+    const scales = {
+        x: { grid: { display: false }, ticks: { color: '#898781' } },
+        y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+    };
+    createSwitchableChart('total-volume-chart', 'total-volume-toggle', {
+        bar: {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: '#eb6834', borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip }, scales },
         },
-        scales: {
-            x: { grid: { display: false }, ticks: { color: '#898781' } },
-            y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+        line: {
+            type: 'line',
+            data: { labels, datasets: [{ data: values, borderColor: '#eb6834', backgroundColor: 'rgba(235,104,52,0.15)', fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip }, scales },
         },
-    },
-});
+    }, 'bar');
+})();
 </script>
 {% endif %}
 {% if has_balance_data %}
 <script>
-new Chart(document.getElementById('balance-chart'), {
-    type: 'doughnut',
-    data: {
-        labels: [{% for row in balance_rows %}"{{ row.muscle|default:'Sin grupo' }}",{% endfor %}],
-        datasets: [{
-            data: [{% for row in balance_rows %}{{ row.pct }},{% endfor %}],
-            backgroundColor: ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a', '#7c8cd6', '#9fb545'],
-            borderColor: '#161512', borderWidth: 2,
-        }],
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed}%` } } },
-    },
-});
+(function () {
+    const labels = [{% for row in balance_rows %}"{{ row.muscle|default:'Sin grupo' }}",{% endfor %}];
+    const values = [{% for row in balance_rows %}{{ row.pct }},{% endfor %}];
+    const palette = ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a', '#7c8cd6', '#9fb545'];
+    const tooltip = { callbacks: { label: (ctx) => `${ctx.label ?? ctx.chart.data.labels[ctx.dataIndex]}: ${ctx.parsed.y ?? ctx.parsed}%` } };
+    createSwitchableChart('balance-chart', 'balance-toggle', {
+        doughnut: {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: values, backgroundColor: palette, borderColor: '#161512', borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip } },
+        },
+        bar: {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: palette, borderRadius: 4 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#898781' } },
+                    y: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781' } },
+                },
+            },
+        },
+    }, 'doughnut');
+})();
 </script>
 {% endif %}
 {% if has_rpe_data %}
@@ -332,29 +389,36 @@ new Chart(document.getElementById('top-lifts-chart'), {
 {% endif %}
 {% if has_exercise_freq_data %}
 <script>
-new Chart(document.getElementById('exercise-freq-chart'), {
-    type: 'bar',
-    data: {
-        labels: {{ exercise_freq_labels|safe }},
-        datasets: [{
-            data: {{ exercise_freq_values|safe }},
-            backgroundColor: '#3987e5',
-            borderRadius: 4,
-        }],
-    },
-    options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x} serie${ctx.parsed.x === 1 ? '' : 's'}` } },
+(function () {
+    const labels = {{ exercise_freq_labels|safe }};
+    const values = {{ exercise_freq_values|safe }};
+    const palette = ['#eb6834', '#3987e5', '#4caf7d', '#c9a13b', '#a06ee1', '#e05f8f', '#3ba9a4', '#c95b4a'];
+    createSwitchableChart('exercise-freq-chart', 'exercise-freq-toggle', {
+        bar: {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values, backgroundColor: '#3987e5', borderRadius: 4 }] },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.x} serie${ctx.parsed.x === 1 ? '' : 's'}` } } },
+                scales: {
+                    x: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781', precision: 0 } },
+                    y: { grid: { display: false }, ticks: { color: '#898781' } },
+                },
+            },
         },
-        scales: {
-            x: { grid: { color: '#2c2c2a' }, ticks: { color: '#898781', precision: 0 } },
-            y: { grid: { display: false }, ticks: { color: '#898781' } },
+        doughnut: {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: values, backgroundColor: palette, borderColor: '#161512', borderWidth: 2 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#c8c6c0', boxWidth: 12, padding: 10, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} serie${ctx.parsed === 1 ? '' : 's'}` } },
+                },
+            },
         },
-    },
-});
+    }, 'bar');
+})();
 </script>
 {% endif %}
 {% endblock %}
