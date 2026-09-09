@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -52,3 +54,17 @@ def home(request):
     context["has_volume_data"] = any(v > 0 for v in volume_values)
 
     return render(request, "dashboard/home.html", context)
+
+
+# --- PWA (instalable en móvil) --------------------------------------------
+
+def offline(request):
+    return render(request, "dashboard/offline.html")
+
+
+def service_worker(request):
+    # Se sirve en la raíz (/sw.js), no bajo /static/, para que su scope
+    # cubra todo el sitio -- un service worker solo controla las rutas
+    # iguales o por debajo de la carpeta desde la que se sirve.
+    sw_path = settings.BASE_DIR / "static" / "sw.js"
+    return HttpResponse(sw_path.read_text(encoding="utf-8"), content_type="application/javascript")
